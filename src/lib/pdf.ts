@@ -44,6 +44,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       currency: "TRY",
     }).format(val);
 
+  const clinicDisplayName = data.clinic.name || "OPTIMUS VET";
+
   return `
 <!DOCTYPE html>
 <html>
@@ -82,30 +84,21 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   <div class="invoice">
     <div class="header">
       <div>
-        <div class="logo">OPTIMUS<span> VETERİNER</span></div>
-        <div style="color: #64748b; margin-top: 5px;">Ön Muhasebe Sistemi</div>
+        <div class="logo">${clinicDisplayName}</div>
+        <div style="color: #64748b; margin-top: 5px; font-weight: 600;">Veteriner Kliniği</div>
+        ${data.clinic.phone ? `<div style="color: #64748b; font-size: 11px; margin-top: 3px;">Tel: ${data.clinic.phone}</div>` : ""}
+        ${data.clinic.address ? `<div style="color: #64748b; font-size: 11px; margin-top: 2px;">${data.clinic.address}</div>` : ""}
       </div>
       <div class="invoice-info">
-        <div class="invoice-number">FATURA #${data.invoiceNumber}</div>
-        <div class="invoice-date">Tarih: ${data.date}</div>
-        ${data.dueDate ? `<div class="invoice-date">Vade: ${data.dueDate}</div>` : ""}
+        <div style="font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 6px;">Tarih: ${data.date}</div>
+        <div style="font-size: 12px; color: #64748b; font-weight: 600;">Belge No: ${data.invoiceNumber}</div>
+        ${data.dueDate ? `<div style="font-size: 11px; color: #64748b; margin-top: 4px;">Vade: ${data.dueDate}</div>` : ""}
       </div>
     </div>
 
     <div class="parties">
       <div class="party">
-        <div class="party-title">Gönderen</div>
-        <div class="party-name">${data.clinic.name}</div>
-        <div class="party-details">
-          ${data.clinic.phone ? `Tel: ${data.clinic.phone}<br>` : ""}
-          ${data.clinic.email ? `E-posta: ${data.clinic.email}<br>` : ""}
-          ${data.clinic.address ? `${data.clinic.address}<br>` : ""}
-          ${data.clinic.taxOffice ? `VD: ${data.clinic.taxOffice}` : ""}
-          ${data.clinic.taxId ? ` - VKN: ${data.clinic.taxId}` : ""}
-        </div>
-      </div>
-      <div class="party">
-        <div class="party-title">Alıcı</div>
+        <div class="party-title">Sayın</div>
         <div class="party-name">${data.customer.name}</div>
         <div class="party-details">
           ${data.customer.phone ? `Tel: ${data.customer.phone}<br>` : ""}
@@ -120,10 +113,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     <table>
       <thead>
         <tr>
-          <th style="width: 40%">Ürün / Hizmet</th>
+          <th style="width: 50%">Ürün / Hizmet</th>
           <th class="text-right">Miktar</th>
           <th class="text-right">Birim Fiyat</th>
-          <th class="text-right">KDV %</th>
           <th class="text-right">Toplam</th>
         </tr>
       </thead>
@@ -135,7 +127,6 @@ export function generateInvoiceHTML(data: InvoiceData): string {
             <td>${item.name}</td>
             <td class="text-right">${item.quantity} ${item.unit}</td>
             <td class="text-right">${formatCurrency(item.unitPrice)}</td>
-            <td class="text-right">%${item.vatRate}</td>
             <td class="text-right">${formatCurrency(item.total)}</td>
           </tr>
         `,
@@ -160,10 +151,6 @@ export function generateInvoiceHTML(data: InvoiceData): string {
         `
             : ""
         }
-        <div class="totals-row">
-          <span>KDV Toplam</span>
-          <span>${formatCurrency(data.vatTotal)}</span>
-        </div>
         <div class="totals-row grand">
           <span>Genel Toplam</span>
           <span>${formatCurrency(data.total)}</span>
@@ -197,7 +184,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
     }
 
     <div class="footer">
-      © ${new Date().getFullYear()} Erkan. Tüm hakları saklıdır. | OPTIMUS VETERİNER ÖN MUHASEBE
+      © ${new Date().getFullYear()} ${clinicDisplayName.toUpperCase()} - Tüm hakları saklıdır.
     </div>
   </div>
 </body>
@@ -260,6 +247,8 @@ export function generateStatementHTML(data: StatementData): string {
       currency: "TRY",
     }).format(val);
 
+  const clinicDisplayName = data.clinic.name || "OPTIMUS VET";
+
   return `
 <!DOCTYPE html>
 <html>
@@ -293,7 +282,7 @@ export function generateStatementHTML(data: StatementData): string {
 <body>
   <div class="statement">
     <div class="header">
-      <div class="logo">OPTIMUS<span> VETERİNER</span></div>
+      <div class="logo">${clinicDisplayName}</div>
       <div class="title">Müşteri Hesap Ekstresi</div>
     </div>
 
@@ -359,7 +348,7 @@ export function generateStatementHTML(data: StatementData): string {
     </div>
 
     <div class="footer">
-      © ${new Date().getFullYear()} Erkan. Tüm hakları saklıdır. | OPTIMUS VETERİNER ÖN MUHASEBE
+      © ${new Date().getFullYear()} ${clinicDisplayName.toUpperCase()} - Tüm hakları saklıdır.
     </div>
   </div>
 </body>

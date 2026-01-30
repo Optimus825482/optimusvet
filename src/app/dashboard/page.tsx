@@ -8,7 +8,6 @@ import {
   ShoppingCart,
   Receipt,
   Syringe,
-  TrendingUp,
   TrendingDown,
   AlertTriangle,
   Calendar,
@@ -28,7 +27,8 @@ import { formatCurrency } from "@/lib/utils";
 interface DashboardData {
   summary: {
     todaySales: number;
-    monthlyIncome: number;
+    totalCustomers: number;
+    totalAnimals: number;
     pendingPayments: number;
     criticalStock: number;
   };
@@ -44,9 +44,25 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [clinicName, setClinicName] = useState("OPTIMUS VETERİNER KLİNİĞİ");
 
-  // TODO: Fetch from settings when available
-  const clinicName = "Optimus Veteriner Kliniği";
+  // Load clinic name from settings
+  useEffect(() => {
+    async function loadClinicName() {
+      try {
+        const response = await fetch("/api/settings");
+        if (response.ok) {
+          const settings = await response.json();
+          if (settings.clinicName) {
+            setClinicName(settings.clinicName);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load clinic name:", error);
+      }
+    }
+    loadClinicName();
+  }, []);
 
   useEffect(() => {
     async function fetchStats() {
@@ -88,7 +104,8 @@ export default function DashboardPage() {
   const dashboardData = data || {
     summary: {
       todaySales: 0,
-      monthlyIncome: 0,
+      totalCustomers: 0,
+      totalAnimals: 0,
       pendingPayments: 0,
       criticalStock: 0,
     },
@@ -129,7 +146,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Summary KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         <Card className="rounded-[2.5rem] border-slate-100 shadow-sm overflow-hidden group">
           <CardContent className="p-8">
             <div className="flex items-center justify-between mb-4">
@@ -156,20 +173,48 @@ export default function DashboardPage() {
           <CardContent className="p-8">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center border border-sky-100 shadow-sm group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-6 h-6" />
+                <Users className="w-6 h-6" />
               </div>
               <Badge
                 variant="info"
                 className="rounded-lg h-5 font-black text-[9px] uppercase"
               >
-                AYLIK
+                TOPLAM
               </Badge>
             </div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-              AYLIK TOPLAM GELİR
+              KAYITLI MÜŞTERİ
             </p>
             <p className="text-2xl font-black text-slate-900 tracking-tighter">
-              {formatCurrency(dashboardData.summary.monthlyIncome)}
+              {dashboardData.summary.totalCustomers}{" "}
+              <span className="text-sm font-bold uppercase tracking-widest">
+                MÜŞTERİ
+              </span>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-[2.5rem] border-slate-100 shadow-sm overflow-hidden group">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 shadow-sm group-hover:scale-110 transition-transform">
+                <PawPrint className="w-6 h-6" />
+              </div>
+              <Badge
+                variant="info"
+                className="rounded-lg h-5 font-black text-[9px] uppercase bg-purple-500"
+              >
+                TOPLAM
+              </Badge>
+            </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+              KAYITLI HAYVAN
+            </p>
+            <p className="text-2xl font-black text-slate-900 tracking-tighter">
+              {dashboardData.summary.totalAnimals}{" "}
+              <span className="text-sm font-bold uppercase tracking-widest">
+                HAYVAN
+              </span>
             </p>
           </CardContent>
         </Card>

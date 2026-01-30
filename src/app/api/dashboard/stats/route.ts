@@ -50,7 +50,17 @@ export async function GET() {
       },
     });
 
-    // 4. Critical Stock Count
+    // 4. Total Customers Count
+    const totalCustomers = await prisma.customer.count({
+      where: {
+        isActive: true,
+      },
+    });
+
+    // 5. Total Animals Count
+    const totalAnimals = await prisma.animal.count();
+
+    // 6. Critical Stock Count
     // In Prisma, we can't easily compare two columns in a single where clause without raw SQL or a specific version
     // So we use a raw query or findMany and filter
     const products = await prisma.product.findMany({
@@ -66,7 +76,7 @@ export async function GET() {
       (p) => Number(p.stock) <= Number(p.criticalLevel),
     ).length;
 
-    // 5. Today's Reminders (Appointments)
+    // 7. Today's Reminders (Appointments)
     const todayReminders = await prisma.reminder.findMany({
       where: {
         dueDate: {
@@ -84,7 +94,7 @@ export async function GET() {
       take: 5,
     });
 
-    // 6. Upcoming Vaccines
+    // 8. Upcoming Vaccines
     const upcomingVaccines = await prisma.reminder.findMany({
       where: {
         type: "VACCINATION",
@@ -103,7 +113,7 @@ export async function GET() {
       take: 5,
     });
 
-    // 7. Large Debts (Pending Payments List)
+    // 9. Large Debts (Pending Payments List)
     const largeDebts = await prisma.customer.findMany({
       where: {
         balance: {
@@ -116,7 +126,7 @@ export async function GET() {
       take: 5,
     });
 
-    // 8. Low Stock Items
+    // 10. Low Stock Items
     const lowStockItems = await prisma.product.findMany({
       where: {
         isActive: true,
@@ -133,7 +143,8 @@ export async function GET() {
     return NextResponse.json({
       summary: {
         todaySales: Number(todaySales._sum.total || 0),
-        monthlyIncome: Number(monthlyIncome._sum.total || 0),
+        totalCustomers: totalCustomers,
+        totalAnimals: totalAnimals,
         pendingPayments: Math.abs(Number(customersWithDebt._sum.balance || 0)),
         criticalStock: criticalStockCount,
       },

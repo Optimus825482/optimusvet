@@ -74,86 +74,129 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
-
+    // Note: Auth is handled by middleware
     const { id } = await params;
 
-    // Get transaction with items to restore stock
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
-    });
-
-    if (!transaction) {
-      return NextResponse.json({ error: "İşlem bulunamadı" }, { status: 404 });
-    }
-
-    // Restore stock for each item
-    for (const item of transaction.items) {
-      if (item.product && !item.product.isService) {
-        if (transaction.type === "SALE") {
-          // Restore stock for sales
-          await prisma.product.update({
-            where: { id: item.productId! },
-            data: {
-              stock: {
-                increment: item.quantity,
-              },
+    // Use Prisma transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Get transaction with items to restore stock
+      const transaction = await tx.transaction.findUnique({
+        where: { id },
+        include: {
+          items: {
+            include: {
+              product: true,
             },
-          });
-        } else if (transaction.type === "PURCHASE") {
-          // Reduce stock for purchases
-          await prisma.product.update({
-            where: { id: item.productId! },
+          },
+          customer: true,
+        },
+      });
+
+      if (!transaction) {
+        throw new Error("İşlem bulunamadı");
+      }
+
+      // Prevent deletion of completed transactions (optional safety check)
+      // Uncomment if you want to prevent deletion of paid transactions
+      // if (transaction.status === "COMPLETED" || transaction.status === "PAID") {
+      //   throw new Error("Tamamlanmış işlemler silinemez");
+      // }
+
+      // 1. Restore stock for each item
+      for (const item of transaction.items) {
+        if (item.product && !item.product.isService) {
+          if (transaction.type === "SALE" || transaction.type === "TREATMENT") {
+            // Restore stock for sales (add back)
+            await tx.product.update({
+              where: { id: item.productId! },
+              data: {
+                stock: {
+                  increment: item.quantity,
+                },
+              },
+            });
+
+            // Record stock movement (reversal)
+            await tx.stockMovement.create({
+              data: {
+                productId: item.productId!,
+                type: "ADJUSTMENT",
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: Number(item.quantity) * Number(item.unitPrice),
+                reference: `${transaction.code} İPTAL`,
+                notes: `Satış iptali - Stok geri yüklendi`,
+              },
+            });
+          } else if (transaction.type === "PURCHASE") {
+            // Reduce stock for purchases (remove)
+            await tx.product.update({
+              where: { id: item.productId! },
+              data: {
+                stock: {
+                  decrement: item.quantity,
+                },
+              },
+            });
+
+            // Record stock movement (reversal)
+            await tx.stockMovement.create({
+              data: {
+                productId: item.productId!,
+                type: "ADJUSTMENT",
+                quantity: -item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: -(Number(item.quantity) * Number(item.unitPrice)),
+                reference: `${transaction.code} İPTAL`,
+                notes: `Alım iptali - Stok düşüldü`,
+              },
+            });
+          }
+        }
+      }
+
+      // 2. Update customer balance (reverse the balance change)
+      if (transaction.customerId) {
+        const remainingBalance =
+          Number(transaction.total) - Number(transaction.paidAmount);
+
+        if (transaction.type === "SALE" || transaction.type === "TREATMENT") {
+          // For sales, decrease customer balance (remove receivable)
+          await tx.customer.update({
+            where: { id: transaction.customerId },
             data: {
-              stock: {
-                decrement: item.quantity,
+              balance: {
+                decrement: remainingBalance,
               },
             },
           });
         }
       }
-    }
 
-    // Update customer balance
-    if (transaction.customerId) {
-      const balanceChange =
-        transaction.type === "SALE"
-          ? -(Number(transaction.total) - Number(transaction.paidAmount))
-          : Number(transaction.total) - Number(transaction.paidAmount);
-
-      await prisma.customer.update({
-        where: { id: transaction.customerId },
-        data: {
-          balance: {
-            increment: balanceChange,
-          },
-        },
+      // 3. Delete transaction items first (foreign key constraint)
+      await tx.transactionItem.deleteMany({
+        where: { transactionId: id },
       });
-    }
 
-    // Delete transaction items
-    await prisma.transactionItem.deleteMany({
-      where: { transactionId: id },
+      // 4. Delete the transaction
+      await tx.transaction.delete({
+        where: { id },
+      });
+
+      return {
+        success: true,
+        message: "İşlem başarıyla iptal edildi ve stoklar geri yüklendi",
+        code: transaction.code,
+      };
     });
 
-    // Delete transaction
-    await prisma.transaction.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Transaction delete error:", error);
-    return NextResponse.json({ error: "İşlem silinemedi" }, { status: 500 });
+
+    const errorMessage =
+      error instanceof Error ? error.message : "İşlem silinemedi";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

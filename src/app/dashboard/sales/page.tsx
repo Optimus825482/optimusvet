@@ -14,17 +14,24 @@ import {
   Loader2,
   Receipt,
   User,
-  Calendar,
+  Calendar as CalendarIcon,
   CreditCard,
   CheckCircle,
   Clock,
   XCircle,
   AlertCircle,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -39,7 +46,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
+
+// Simple date formatter
+function formatDate(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleDateString("tr-TR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 interface Sale {
   id: string;
@@ -95,20 +115,29 @@ const typeLabels: Record<string, string> = {
 export default function SalesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery<{
+  const { data, isLoading, error, refetch } = useQuery<{
     transactions: Sale[];
     total: string | number;
   }>({
-    queryKey: ["sales", search, statusFilter, dateFilter],
+    queryKey: ["sales", search, statusFilter, dateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (statusFilter && statusFilter !== "all")
         params.set("status", statusFilter);
+      if (dateRange?.from) {
+        params.set("startDate", dateRange.from.toISOString());
+      }
+      if (dateRange?.to) {
+        params.set("endDate", dateRange.to.toISOString());
+      }
       params.set("type", "SALE");
       params.set("limit", "50");
+      params.set("orderBy", "date");
+      params.set("order", "desc");
 
       const res = await fetch(`/api/sales?${params}`);
       if (!res.ok) throw new Error("Satışlar yüklenemedi");
@@ -124,7 +153,7 @@ export default function SalesPage() {
     if (!data?.transactions) return 0;
     const today = new Date().toDateString();
     return data.transactions
-      .filter((s) => new Date(s.date || s.createdAt).toDateString() === today)
+      .filter((s) => new Date(s.date).toDateString() === today)
       .reduce((sum, s) => sum + Number(s.total || 0), 0);
   };
 
@@ -133,6 +162,44 @@ export default function SalesPage() {
     return data.transactions
       .filter((s) => s.status === "PENDING" || s.status === "PARTIAL")
       .reduce((sum, s) => sum + Number(getRemainingAmount(s) || 0), 0);
+  };
+
+  const handleDelete = async (saleId: string, saleCode: string) => {
+    if (
+      !confirm(
+        `${saleCode} kodlu satışı iptal etmek istediğinize emin misiniz?\n\nBu işlem:\n- Satış kaydını silecek\n- Ürün stoklarını geri yükleyecek\n- Müşteri bakiyesini düzeltecek\n\nBu işlem geri alınamaz!`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(saleId);
+
+    try {
+      const response = await fetch(`/api/transactions/${saleId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Satış iptal edilemedi");
+      }
+
+      const result = await response.json();
+      alert(result.message || "Satış başarıyla iptal edildi");
+
+      // Refresh the list
+      refetch();
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Satış iptal edilirken hata oluştu",
+      );
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -179,17 +246,68 @@ export default function SalesPage() {
             <SelectItem value="CANCELLED">İptal</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Tarih" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tüm Zamanlar</SelectItem>
-            <SelectItem value="today">Bugün</SelectItem>
-            <SelectItem value="week">Bu Hafta</SelectItem>
-            <SelectItem value="month">Bu Ay</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Date Range Picker */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={`w-full sm:w-[280px] justify-start text-left font-normal ${
+                !dateRange && "text-muted-foreground"
+              }`}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {dateRange.from.toLocaleDateString("tr-TR", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}{" "}
+                    -{" "}
+                    {dateRange.to.toLocaleDateString("tr-TR", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </>
+                ) : (
+                  dateRange.from.toLocaleDateString("tr-TR", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
+                )
+              ) : (
+                <span>Tarih seçin</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={dateRange?.from}
+              selected={dateRange}
+              onSelect={setDateRange}
+              numberOfMonths={2}
+            />
+            {dateRange && (
+              <div className="p-3 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setDateRange(undefined)}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Temizle
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Stats */}
@@ -259,113 +377,134 @@ export default function SalesPage() {
             const remaining = getRemainingAmount(sale);
 
             return (
-              <Card key={sale.id} className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    {/* Left: Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold">{sale.code}</h3>
-                        <Badge
-                          variant={
-                            statusConfig[sale.status]?.variant || "secondary"
-                          }
-                        >
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {statusConfig[sale.status]?.label || sale.status}
-                        </Badge>
-                        <Badge variant="outline">
-                          {typeLabels[sale.type] || sale.type}
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                        {sale.customer && (
-                          <div className="flex items-center gap-1">
-                            <User className="w-3.5 h-3.5" />
-                            <span>{sale.customer.name}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span>{formatDate(sale.createdAt)}</span>
+              <Link key={sale.id} href={`/dashboard/sales/${sale.id}`}>
+                <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      {/* Left: Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold">{sale.code}</h3>
+                          <Badge
+                            variant={
+                              statusConfig[sale.status]?.variant || "secondary"
+                            }
+                          >
+                            <StatusIcon className="w-3 h-3 mr-1" />
+                            {statusConfig[sale.status]?.label || sale.status}
+                          </Badge>
+                          <Badge variant="outline">
+                            {typeLabels[sale.type] || sale.type}
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <ShoppingCart className="w-3.5 h-3.5" />
-                          <span>{sale.items.length} kalem</span>
-                        </div>
-                      </div>
 
-                      {/* Items Preview */}
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        {sale.items.slice(0, 3).map((item, idx) => (
-                          <span key={item.id}>
-                            {item.productName} x{item.quantity}
-                            {idx < Math.min(sale.items.length, 3) - 1 && ", "}
-                          </span>
-                        ))}
-                        {sale.items.length > 3 &&
-                          ` +${sale.items.length - 3} daha`}
-                      </div>
-                    </div>
-
-                    {/* Right: Amount & Actions */}
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-xl font-bold">
-                          {formatCurrency(Number(sale.total || 0))}
-                        </div>
-                        {remaining > 0 && (
-                          <div className="text-sm text-destructive">
-                            Kalan: {formatCurrency(remaining)}
-                          </div>
-                        )}
-                        {Number(sale.paidAmount || 0) > 0 &&
-                          Number(sale.paidAmount || 0) < Number(sale.total || 0) && (
-                            <div className="text-xs text-muted-foreground">
-                              Ödenen: {formatCurrency(Number(sale.paidAmount || 0))}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          {sale.customer && (
+                            <div className="flex items-center gap-1">
+                              <User className="w-3.5 h-3.5" />
+                              <span>{sale.customer.name}</span>
                             </div>
                           )}
+                          <div className="flex items-center gap-1">
+                            <CalendarIcon className="w-3.5 h-3.5" />
+                            <span>{formatDate(sale.date)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <ShoppingCart className="w-3.5 h-3.5" />
+                            <span>{sale.items.length} kalem</span>
+                          </div>
+                        </div>
+
+                        {/* Items Preview */}
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          {sale.items.slice(0, 3).map((item, idx) => (
+                            <span key={item.id}>
+                              {item.productName} x{item.quantity}
+                              {idx < Math.min(sale.items.length, 3) - 1 && ", "}
+                            </span>
+                          ))}
+                          {sale.items.length > 3 &&
+                            ` +${sale.items.length - 3} daha`}
+                        </div>
                       </div>
 
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/sales/${sale.id}`}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Detay
-                            </Link>
-                          </DropdownMenuItem>
+                      {/* Right: Amount & Actions */}
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-xl font-bold">
+                            {formatCurrency(Number(sale.total || 0))}
+                          </div>
                           {remaining > 0 && (
+                            <div className="text-sm text-destructive">
+                              Kalan: {formatCurrency(remaining)}
+                            </div>
+                          )}
+                          {Number(sale.paidAmount || 0) > 0 &&
+                            Number(sale.paidAmount || 0) <
+                              Number(sale.total || 0) && (
+                              <div className="text-xs text-muted-foreground">
+                                Ödenen:{" "}
+                                {formatCurrency(Number(sale.paidAmount || 0))}
+                              </div>
+                            )}
+                        </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            asChild
+                            onClick={(e) => e.preventDefault()}
+                            disabled={deletingId === sale.id}
+                          >
+                            <Button variant="ghost" size="icon">
+                              {deletingId === sale.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <MoreHorizontal className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link
-                                href={`/dashboard/sales/${sale.id}/payment`}
-                              >
-                                <CreditCard className="w-4 h-4 mr-2" />
-                                Ödeme Al
+                              <Link href={`/dashboard/sales/${sale.id}`}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Detay
                               </Link>
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem>
-                            <Printer className="w-4 h-4 mr-2" />
-                            Yazdır
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            İptal Et
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {remaining > 0 && (
+                              <DropdownMenuItem asChild>
+                                <Link
+                                  href={`/dashboard/sales/${sale.id}/payment`}
+                                >
+                                  <CreditCard className="w-4 h-4 mr-2" />
+                                  Ödeme Al
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={(e) => e.preventDefault()}
+                            >
+                              <Printer className="w-4 h-4 mr-2" />
+                              Yazdır
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleDelete(sale.id, sale.code);
+                              }}
+                              disabled={deletingId === sale.id}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              İptal Et
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>

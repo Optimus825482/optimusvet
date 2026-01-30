@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { printInvoice, type InvoiceData } from "@/lib/pdf";
 import { formatCurrency } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 function formatDate(date: string | Date) {
   return new Date(date).toLocaleDateString("tr-TR", {
@@ -114,9 +115,42 @@ export default function SaleDetailPage() {
   const params = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const saleId = params.id as string;
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clinicSettings, setClinicSettings] = useState({
+    name: "OPTIMUS VET",
+    phone: "",
+    email: "",
+    address: "",
+  });
+
+  // Load clinic settings
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        console.log("🔄 Loading clinic settings...");
+        const response = await fetch("/api/settings");
+        if (response.ok) {
+          const settings = await response.json();
+          console.log("✅ Settings loaded:", settings);
+          setClinicSettings({
+            name: settings.clinicName || "OPTIMUS VET",
+            phone: settings.clinicPhone || "",
+            email: settings.clinicEmail || "",
+            address: settings.clinicAddress || "",
+          });
+          console.log("✅ Clinic name set to:", settings.clinicName);
+        } else {
+          console.error("❌ Settings response not OK:", response.status);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load settings:", error);
+      }
+    }
+    loadSettings();
+  }, []);
 
   // Fetch sale details
   const { data: sale, isLoading } = useQuery({
@@ -140,14 +174,31 @@ export default function SaleDetailPage() {
       }
     },
     onSuccess: () => {
+      setDeleteDialogOpen(false);
+      toast({
+        title: "✅ Satış Silindi",
+        description: `${sale?.code} kodlu satış başarıyla silindi. Stok ve bakiye güncellendi.`,
+      });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      router.push("/dashboard/sales");
+      setTimeout(() => {
+        router.push("/dashboard/sales");
+      }, 1000);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "❌ Hata",
+        description: error.message || "Satış silinirken bir hata oluştu",
+        variant: "destructive",
+      });
     },
   });
 
   const handlePrint = () => {
     if (!sale) return;
+
+    console.log("🖨️ Print button clicked");
+    console.log("📋 Current clinic settings:", clinicSettings);
 
     const invoiceData: InvoiceData = {
       invoiceNumber: sale.code,
@@ -161,10 +212,10 @@ export default function SaleDetailPage() {
         taxOffice: sale.customer?.taxOffice,
       },
       clinic: {
-        name: "OPTIMUS VETERİNER",
-        phone: "+90 555 123 45 67",
-        email: "info@optimusvet.com",
-        address: "Veteriner Klinik Adresi",
+        name: clinicSettings.name,
+        phone: clinicSettings.phone,
+        email: clinicSettings.email,
+        address: clinicSettings.address,
       },
       items: sale.items.map((item: any) => ({
         name: item.product?.name || item.description || "Ürün",
@@ -216,7 +267,8 @@ export default function SaleDetailPage() {
     );
   }
 
-  const remainingAmount = Number(sale.total || 0) - Number(sale.paidAmount || 0);
+  const remainingAmount =
+    Number(sale.total || 0) - Number(sale.paidAmount || 0);
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -647,16 +699,16 @@ export default function SaleDetailPage() {
                 {sale.code}
               </strong>{" "}
               kodlu satışı silmek istediğinize emin misiniz?
-              <div className="mt-4 p-4 rounded-2xl bg-rose-50 border border-rose-100/50">
-                <p className="text-rose-600 font-black uppercase text-[10px] tracking-widest mb-1">
-                  KRİTİK BİLGİ
-                </p>
-                <p className="text-rose-500/80 text-xs font-bold leading-relaxed">
-                  Bu işlem stok hareketlerini geri alacak ve müşteri bakiyesini
-                  etkileyecektir. İşlem kalıcıdır.
-                </p>
-              </div>
             </DialogDescription>
+            <div className="mt-4 p-4 rounded-2xl bg-rose-50 border border-rose-100/50">
+              <p className="text-rose-600 font-black uppercase text-[10px] tracking-widest mb-1">
+                KRİTİK BİLGİ
+              </p>
+              <p className="text-rose-500/80 text-xs font-bold leading-relaxed">
+                Bu işlem stok hareketlerini geri alacak ve müşteri bakiyesini
+                etkileyecektir. İşlem kalıcıdır.
+              </p>
+            </div>
           </DialogHeader>
           <DialogFooter className="gap-3 mt-4">
             <Button

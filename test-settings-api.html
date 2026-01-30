@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Settings API Test</title>
+    <style>
+      body {
+        font-family: monospace;
+        padding: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+        font-size: 16px;
+      }
+      pre {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .success {
+        color: green;
+      }
+      .error {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Settings API Test</h1>
+
+    <button onclick="testGet()">Test GET /api/settings</button>
+    <button onclick="testPost()">Test POST /api/settings</button>
+    <button onclick="clearCache()">Clear Cache & Reload</button>
+
+    <div id="output"></div>
+
+    <script>
+      const API_URL = "http://localhost:3002";
+
+      async function testGet() {
+        const output = document.getElementById("output");
+        output.innerHTML = "<p>Loading...</p>";
+
+        try {
+          const response = await fetch(`${API_URL}/api/settings`, {
+            cache: "no-store",
+          });
+          const data = await response.json();
+
+          output.innerHTML = `
+                    <h2 class="success">✅ GET Success</h2>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p><strong>Clinic Name:</strong> ${data.clinicName || "NOT SET"}</p>
+                `;
+        } catch (error) {
+          output.innerHTML = `
+                    <h2 class="error">❌ GET Error</h2>
+                    <pre>${error.message}</pre>
+                `;
+        }
+      }
+
+      async function testPost() {
+        const output = document.getElementById("output");
+        output.innerHTML = "<p>Saving...</p>";
+
+        const testData = {
+          clinicName: "TEST CLINIC " + Date.now(),
+          clinicPhone: "0555 123 45 67",
+          clinicEmail: "test@test.com",
+        };
+
+        try {
+          const response = await fetch(`${API_URL}/api/settings`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(testData),
+          });
+          const data = await response.json();
+
+          output.innerHTML = `
+                    <h2 class="success">✅ POST Success</h2>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <p>Now click "Test GET" to verify...</p>
+                `;
+        } catch (error) {
+          output.innerHTML = `
+                    <h2 class="error">❌ POST Error</h2>
+                    <pre>${error.message}</pre>
+                `;
+        }
+      }
+
+      function clearCache() {
+        if ("caches" in window) {
+          caches.keys().then((names) => {
+            names.forEach((name) => caches.delete(name));
+          });
+        }
+        localStorage.clear();
+        sessionStorage.clear();
+        location.reload(true);
+      }
+    </script>
+  </body>
+</html>

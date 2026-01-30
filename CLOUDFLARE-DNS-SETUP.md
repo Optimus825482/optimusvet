@@ -176,26 +176,26 @@ Terminal'den kontrol et:
 
 ```bash
 # A record kontrolü
-nslookup optimus.celilturan.com.tr
+nslookup turan.aihaberleri.org
 
 # Dig ile detaylı kontrol
-dig optimus.celilturan.com.tr
+dig turan.aihaberleri.org
 
 # Ping testi
-ping optimus.celilturan.com.tr
+ping turan.aihaberleri.org
 ```
 
 **Beklenen Çıktı:**
 
 ```
-optimus.celilturan.com.tr has address [COOLIFY_SUNUCU_IP]
+turan.aihaberleri.org has address [COOLIFY_SUNUCU_IP]
 ```
 
 ### 6.2. Online DNS Checker
 
 https://dnschecker.org adresine git:
 
-1. `optimus.celilturan.com.tr` yaz
+1. `turan.aihaberleri.org` yaz
 2. **A** record seç
 3. **Search** tıkla
 4. Tüm lokasyonlarda IP adresini görmeli
@@ -209,7 +209,7 @@ https://dnschecker.org adresine git:
 Tarayıcıda aç:
 
 ```
-http://optimus.celilturan.com.tr
+http://turan.aihaberleri.org
 ```
 
 Otomatik olarak HTTPS'e yönlendirilmeli.
@@ -217,7 +217,7 @@ Otomatik olarak HTTPS'e yönlendirilmeli.
 ### 7.2. HTTPS Test
 
 ```
-https://optimus.celilturan.com.tr
+https://turan.aihaberleri.org
 ```
 
 ✅ Yeşil kilit simgesi görünmeli (SSL aktif)
@@ -225,7 +225,7 @@ https://optimus.celilturan.com.tr
 ### 7.3. Health Check
 
 ```
-https://optimus.celilturan.com.tr/api/health
+https://turan.aihaberleri.org/api/health
 ```
 
 **Beklenen Yanıt:**
@@ -369,10 +369,10 @@ Deployment öncesi kontrol et:
 - [ ] Proxy status: ✅ Proxied (turuncu bulut)
 - [ ] SSL/TLS mode: **Full (strict)**
 - [ ] Always Use HTTPS: ✅ Aktif
-- [ ] Coolify'da domain eklendi (`optimus.celilturan.com.tr`)
+- [ ] Coolify'da domain eklendi (`turan.aihaberleri.org`)
 - [ ] Coolify SSL certificate oluşturuldu
 - [ ] DNS propagation tamamlandı (5-10 dakika)
-- [ ] `https://optimus.celilturan.com.tr` açılıyor
+- [ ] `https://turan.aihaberleri.org` açılıyor
 - [ ] Health check çalışıyor (`/api/health`)
 
 ---
@@ -381,7 +381,7 @@ Deployment öncesi kontrol et:
 
 Tüm adımlar tamamlandığında:
 
-✅ **Domain**: `https://optimus.celilturan.com.tr`
+✅ **Domain**: `https://turan.aihaberleri.org`
 ✅ **SSL**: Let's Encrypt + Cloudflare
 ✅ **DDoS Protection**: Cloudflare
 ✅ **CDN**: Cloudflare Edge Network

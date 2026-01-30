@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get("endDate");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
+    const orderBy = searchParams.get("orderBy") || "date";
+    const order = searchParams.get("order") || "desc";
 
     const where: Prisma.TransactionWhereInput = {
       type: { in: ["SALE", "TREATMENT"] },
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
             include: { product: true },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { [orderBy]: order },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -123,6 +125,14 @@ export async function POST(request: NextRequest) {
 
     const total = subtotal + vatTotal - Number(validatedData.discount);
 
+    // Determine payment status
+    let status: "PAID" | "PARTIAL" | "PENDING" = "PENDING";
+    if (validatedData.paidAmount >= total) {
+      status = "PAID";
+    } else if (validatedData.paidAmount > 0) {
+      status = "PARTIAL";
+    }
+
     // Create transaction with items in a transaction
     const transaction = await prisma.$transaction(async (tx) => {
       // Create transaction
@@ -140,6 +150,7 @@ export async function POST(request: NextRequest) {
           discount: validatedData.discount,
           total,
           paidAmount: validatedData.paidAmount,
+          status,
           paymentMethod: validatedData.paymentMethod,
           notes: validatedData.notes,
           items: {

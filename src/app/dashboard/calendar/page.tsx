@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -82,6 +82,25 @@ export default function CalendarPage() {
     "month",
   );
   const printRef = useRef<HTMLDivElement>(null);
+  const [clinicSettings, setClinicSettings] = useState<{ name: string } | null>(
+    null,
+  );
+
+  // Load clinic settings
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/settings");
+        if (response.ok) {
+          const settings = await response.json();
+          setClinicSettings({ name: settings.clinicName || "OPTIMUS VET" });
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      }
+    }
+    loadSettings();
+  }, []);
 
   // Data Fetching for the visible range
   const range = useMemo(() => {
@@ -454,7 +473,9 @@ export default function CalendarPage() {
       {/* Print Only Content */}
       <div className="hidden print:block p-8">
         <div className="border-b pb-4 mb-8">
-          <h1 className="text-2xl font-bold">GÜNLÜK RAPOR - OPTIMUS VET</h1>
+          <h1 className="text-2xl font-bold">
+            GÜNLÜK RAPOR - {clinicSettings?.name || "OPTIMUS VET"}
+          </h1>
           <p className="text-lg">
             {format(selectedDate, "d MMMM yyyy EEEE", { locale: tr })}
           </p>
@@ -566,7 +587,7 @@ function MonthView({
                   ? "bg-muted/10 opacity-40"
                   : "bg-card hover:bg-muted/30",
                 isSelected &&
-                "bg-primary/5 ring-1 ring-inset ring-primary z-10",
+                  "bg-primary/5 ring-1 ring-inset ring-primary z-10",
                 idx % 7 === 6 && "border-r-0",
               )}
             >

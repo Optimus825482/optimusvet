@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -40,11 +42,51 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
+  // Load settings on mount
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/settings");
+        if (response.ok) {
+          const settings = await response.json();
+          if (settings.clinicName) setClinicName(settings.clinicName);
+          if (settings.clinicPhone) setClinicPhone(settings.clinicPhone);
+          if (settings.clinicEmail) setClinicEmail(settings.clinicEmail);
+          if (settings.clinicAddress) setClinicAddress(settings.clinicAddress);
+          if (settings.clinicCity) setClinicCity(settings.clinicCity);
+          if (settings.taxNumber) setTaxNumber(settings.taxNumber);
+          if (settings.taxOffice) setTaxOffice(settings.taxOffice);
+          if (settings.vaccineReminder)
+            setVaccineReminder(parseInt(settings.vaccineReminder));
+          if (settings.fertilityReminder)
+            setFertilityReminder(parseInt(settings.fertilityReminder));
+          if (settings.paymentReminder)
+            setPaymentReminder(parseInt(settings.paymentReminder));
+          if (settings.emailEnabled)
+            setEmailEnabled(settings.emailEnabled === "true");
+          if (settings.currency) setCurrency(settings.currency);
+          if (settings.dateFormat) setDateFormat(settings.dateFormat);
+          if (settings.lowStockThreshold)
+            setLowStockThreshold(parseInt(settings.lowStockThreshold));
+          if (settings.smtpHost) setSmtpHost(settings.smtpHost);
+          if (settings.smtpPort) setSmtpPort(settings.smtpPort);
+          if (settings.smtpUser) setSmtpUser(settings.smtpUser);
+          if (settings.smtpPass) setSmtpPass(settings.smtpPass);
+          if (settings.smtpSecure)
+            setSmtpSecure(settings.smtpSecure === "true");
+          if (settings.smtpFrom) setSmtpFrom(settings.smtpFrom);
+        }
+      } catch (error) {
+        console.error("Load settings error:", error);
+      }
+    }
+    loadSettings();
+  }, []);
   const [activeTab, setActiveTab] = useState("clinic");
   const queryClient = useQueryClient();
 
   // Clinic settings state
-  const [clinicName, setClinicName] = useState("Optimus Veteriner Kliniği");
+  const [clinicName, setClinicName] = useState("");
   const [clinicPhone, setClinicPhone] = useState("");
   const [clinicEmail, setClinicEmail] = useState("");
   const [clinicAddress, setClinicAddress] = useState("");
@@ -76,14 +118,60 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSaving(false);
-    toast({
-      variant: "success",
-      title: "Ayarlar Kaydedildi",
-      description: "Değişiklikler başarıyla uygulandı",
-    });
+    try {
+      const settings = {
+        clinicName,
+        clinicPhone,
+        clinicEmail,
+        clinicAddress,
+        clinicCity,
+        taxNumber,
+        taxOffice,
+        vaccineReminder: vaccineReminder.toString(),
+        fertilityReminder: fertilityReminder.toString(),
+        paymentReminder: paymentReminder.toString(),
+        emailEnabled: emailEnabled.toString(),
+        currency,
+        dateFormat,
+        lowStockThreshold: lowStockThreshold.toString(),
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        smtpPass,
+        smtpSecure: smtpSecure.toString(),
+        smtpFrom,
+      };
+
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+
+      if (!response.ok) {
+        throw new Error("Ayarlar kaydedilemedi");
+      }
+
+      toast({
+        variant: "success",
+        title: "Ayarlar Kaydedildi",
+        description: "Değişiklikler başarıyla uygulandı. Sayfa yenileniyor...",
+      });
+
+      // Sayfa yenileme ile cache'i temizle
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "Ayarlar kaydedilirken bir hata oluştu",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [
@@ -638,10 +726,28 @@ export default function SettingsPage() {
           )}
 
           {/* Save Button */}
-          <div className="flex justify-end">
-            <Button onClick={handleSave} loading={saving} className="min-w-32">
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Clear all caches
+                if ("caches" in window) {
+                  caches.keys().then((names) => {
+                    names.forEach((name) => caches.delete(name));
+                  });
+                }
+                // Clear localStorage
+                localStorage.clear();
+                // Reload page
+                window.location.reload();
+              }}
+              className="min-w-32"
+            >
+              🗑️ Cache Temizle
+            </Button>
+            <Button onClick={handleSave} disabled={saving} className="min-w-32">
               <Save className="w-4 h-4 mr-2" />
-              Kaydet
+              {saving ? "Kaydediliyor..." : "Kaydet"}
             </Button>
           </div>
         </div>

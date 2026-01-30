@@ -2,7 +2,7 @@
 
 ## 📋 Deployment Bilgileri
 
-- **Domain**: `https://optimus.celilturan.com.tr`
+- **Domain**: `https://turan.aihaberleri.org`
 - **Port**: `3002`
 - **Repository**: `https://github.com/Optimus825482/optimusvet.git`
 - **Branch**: `main`
@@ -52,7 +52,7 @@ Coolify'da **Environment Variables** sekmesine git ve şunları ekle:
 DATABASE_URL=postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet
 
 # NextAuth (ÖNEMLİ: Güvenli secret oluştur!)
-NEXTAUTH_URL=https://optimus.celilturan.com.tr
+NEXTAUTH_URL=https://turan.aihaberleri.org
 NEXTAUTH_SECRET=BURAYA_GUVENLI_SECRET_YAZ
 
 # Application
@@ -102,7 +102,7 @@ npm ci
 
 Coolify'da **Domains** sekmesine git:
 
-1. **Add Domain**: `optimus.celilturan.com.tr`
+1. **Add Domain**: `turan.aihaberleri.org`
 2. **Generate SSL Certificate** (Let's Encrypt otomatik)
 3. **Force HTTPS**: ✅ Aktif et
 
@@ -177,7 +177,7 @@ Coolify'da **Health Check** sekmesine git:
    - ✅ Application start
 
 3. Deployment tamamlandığında:
-   - `https://optimus.celilturan.com.tr` adresine git
+   - `https://turan.aihaberleri.org` adresine git
    - İlk kullanıcıyı oluştur: `/auth/register`
 
 ---
@@ -272,7 +272,7 @@ Coolify'da **Metrics** sekmesi:
 
 ### Health Status
 
-`https://optimus.celilturan.com.tr/api/health` adresinden sistem durumunu kontrol et:
+`https://turan.aihaberleri.org/api/health` adresinden sistem durumunu kontrol et:
 
 ```json
 {
@@ -452,11 +452,11 @@ Deployment öncesi kontrol et:
 
 Sistem başarıyla deploy edildiğinde:
 
-✅ **Ana Sayfa**: `https://optimus.celilturan.com.tr`
-✅ **Login**: `https://optimus.celilturan.com.tr/auth/login`
-✅ **Register**: `https://optimus.celilturan.com.tr/auth/register`
-✅ **Dashboard**: `https://optimus.celilturan.com.tr/dashboard`
-✅ **Health Check**: `https://optimus.celilturan.com.tr/api/health`
+✅ **Ana Sayfa**: `https://turan.aihaberleri.org`
+✅ **Login**: `https://turan.aihaberleri.org/auth/login`
+✅ **Register**: `https://turan.aihaberleri.org/auth/register`
+✅ **Dashboard**: `https://turan.aihaberleri.org/dashboard`
+✅ **Health Check**: `https://turan.aihaberleri.org/api/health`
 
 **Veriler zaten database'de olduğu için direkt kullanmaya başlayabilirsin!** 🎊
 

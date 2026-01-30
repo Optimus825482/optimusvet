@@ -36,6 +36,25 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [time, setTime] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(0);
+  const [clinicName, setClinicName] = useState("OPTIMUS VET");
+
+  // Load clinic name from settings
+  useEffect(() => {
+    async function loadClinicName() {
+      try {
+        const response = await fetch("/api/settings");
+        if (response.ok) {
+          const settings = await response.json();
+          if (settings.clinicName) {
+            setClinicName(settings.clinicName);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load clinic name:", error);
+      }
+    }
+    loadClinicName();
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -199,7 +218,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                         {session?.user?.name || "Kullanıcı"}
                       </span>
                       <span className="text-[10px] font-semibold text-primary truncate max-w-[120px]">
-                        {process.env.NEXT_PUBLIC_APP_NAME || "OPTIMUS VET"}
+                        {clinicName}
                       </span>
                       <span className="text-[10px] text-primary font-black uppercase tracking-tighter">
                         {(session?.user?.role as any) === "ADMIN" ||

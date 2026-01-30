@@ -118,7 +118,9 @@ export default function CustomersPage() {
             <div className="text-2xl font-bold">{data.total}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Alacaklı Müşteri</div>
+            <div className="text-sm text-muted-foreground">
+              Alacaklı Müşteri
+            </div>
             <div className="text-2xl font-bold text-destructive">
               {data.customers.filter((c) => c.balance > 0).length}
             </div>
@@ -134,7 +136,9 @@ export default function CustomersPage() {
           </Card>
           <Card className="p-4">
             <div className="text-sm text-muted-foreground">Toplam Alacak</div>
-            <div className="text-2xl font-bold text-destructive">₺{data.customers
+            <div className="text-2xl font-bold text-destructive">
+              ₺
+              {data.customers
                 .filter((c) => c.balance > 0)
                 .reduce((sum, c) => sum + Number(c.balance || 0), 0)
                 .toLocaleString("tr-TR", {
@@ -181,135 +185,146 @@ export default function CustomersPage() {
       ) : (
         <div className="grid gap-4">
           {data?.customers.map((customer) => (
-            <Card
+            <Link
               key={customer.id}
-              className="overflow-hidden hover:shadow-md transition-shadow"
+              href={`/dashboard/customers/${customer.id}`}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  {/* Customer Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold truncate">
-                        {customer.name}
-                      </h3>
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        {customer.code}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>{customer.phone}</span>
+              <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Customer Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold truncate">
+                          {customer.name}
+                        </h3>
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          {customer.code}
+                        </Badge>
                       </div>
-                      {customer.email && (
+
+                      <div className="space-y-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5" />
-                          <span className="truncate">{customer.email}</span>
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>{customer.phone}</span>
                         </div>
-                      )}
-                      {customer.city && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5" />
-                          <span>{customer.city}</span>
+                        {customer.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-3.5 h-3.5" />
+                            <span className="truncate">{customer.email}</span>
+                          </div>
+                        )}
+                        {customer.city && (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>{customer.city}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stats & Actions */}
+                    <div className="flex items-start gap-4">
+                      {/* Animal Count */}
+                      <div className="text-center">
+                        <div className="flex items-center gap-1 text-primary">
+                          <PawPrint className="w-4 h-4" />
+                          <span className="font-semibold">
+                            {customer._count.animals}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                        <div className="text-xs text-muted-foreground">
+                          Hayvan
+                        </div>
+                      </div>
 
-                  {/* Stats & Actions */}
-                  <div className="flex items-start gap-4">
-                    {/* Animal Count */}
-                    <div className="text-center">
-                      <div className="flex items-center gap-1 text-primary">
-                        <PawPrint className="w-4 h-4" />
-                        <span className="font-semibold">
-                          {customer._count.animals}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Hayvan
-                      </div>
-                    </div>
-
-                    {/* Balance */}
-                    <div className="text-right">
-                      <div
-                        className={`font-semibold ${
-                          customer.balance > 0
-                            ? "text-destructive"
-                            : customer.balance < 0
-                              ? "text-emerald-600"
-                              : ""
-                        }`}
-                      >
-                        {customer.balance > 0 ? "+" : ""}
-                        {Number(customer.balance || 0).toLocaleString("tr-TR", {
-                          style: "currency",
-                          currency: "TRY",
-                        })}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {customer.balance > 0
-                          ? "Alacak"
-                          : customer.balance < 0
-                            ? "Borç"
-                            : "Bakiye"}
-                      </div>
-                    </div>
-
-                    {/* Dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0"
+                      {/* Balance */}
+                      <div className="text-right">
+                        <div
+                          className={`font-semibold ${
+                            customer.balance > 0
+                              ? "text-destructive"
+                              : customer.balance < 0
+                                ? "text-emerald-600"
+                                : ""
+                          }`}
                         >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/customers/${customer.id}`}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Detay
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={`/dashboard/customers/${customer.id}/edit`}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Düzenle
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={`/dashboard/animals/new?customerId=${customer.id}`}
-                          >
-                            <PawPrint className="w-4 h-4 mr-2" />
-                            Hayvan Ekle
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Sil
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
+                          {customer.balance > 0 ? "+" : ""}
+                          {Number(customer.balance || 0).toLocaleString(
+                            "tr-TR",
+                            {
+                              style: "currency",
+                              currency: "TRY",
+                            },
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {customer.balance > 0
+                            ? "Alacak"
+                            : customer.balance < 0
+                              ? "Borç"
+                              : "Bakiye"}
+                        </div>
+                      </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t text-xs text-muted-foreground">
-                  <span>Kayıt: {formatDate(customer.createdAt)}</span>
-                  <span>{customer._count.transactions} işlem</span>
-                </div>
-              </CardContent>
-            </Card>
+                      {/* Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          asChild
+                          onClick={(e) => e.preventDefault()}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/customers/${customer.id}`}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Detay
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/dashboard/customers/${customer.id}/edit`}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Düzenle
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/dashboard/animals/new?customerId=${customer.id}`}
+                            >
+                              <PawPrint className="w-4 h-4 mr-2" />
+                              Hayvan Ekle
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={(e) => e.preventDefault()}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Sil
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t text-xs text-muted-foreground">
+                    <span>Kayıt: {formatDate(customer.createdAt)}</span>
+                    <span>{customer._count.transactions} işlem</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
