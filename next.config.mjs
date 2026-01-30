@@ -1,13 +1,4 @@
 /** @type {import('next').NextConfig} */
-import withSerwistInit from "@serwist/next";
-
-const withSerwist = withSerwistInit({
-  cacheOnFrontEndNavigation: true,
-  swSrc: "/public/service-worker.js",
-  swDest: "/.next/static/service-worker.js",
-  reloadOnOnline: true,
-  disable: process.env.NODE_ENV === "development",
-});
 
 const nextConfig = {
   reactStrictMode: true,
@@ -32,4 +23,4 @@ const nextConfig = {
   turbopack: {},
 };
 
-export default withSerwist(nextConfig);
+export default nextConfig;
