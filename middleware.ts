@@ -1,5 +1,4 @@
-import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 // Simple in-memory rate limiter (for development)
 // For production, use @upstash/ratelimit with Redis
@@ -26,9 +25,8 @@ function rateLimit(
   return true;
 }
 
-export default auth((req) => {
+export function middleware(req: NextRequest) {
   const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
 
   // Get client IP for rate limiting
   const ip =
@@ -53,30 +51,21 @@ export default auth((req) => {
     }
   }
 
-  // Public routes
+  // Public routes - allow without auth check
   const isPublicRoute =
-    nextUrl.pathname === "/" || nextUrl.pathname.startsWith("/auth");
+    nextUrl.pathname === "/" ||
+    nextUrl.pathname.startsWith("/auth") ||
+    nextUrl.pathname.startsWith("/api/auth") ||
+    nextUrl.pathname.startsWith("/api/health");
 
-  // API routes that don't need auth (GET requests for reading data)
-  const isPublicApiRoute = nextUrl.pathname.startsWith("/api/auth");
-
-  // If on public route or public API, allow
-  if (isPublicRoute || isPublicApiRoute) {
+  if (isPublicRoute) {
     return NextResponse.next();
   }
 
-  // If not logged in and trying to access protected route
-  if (!isLoggedIn && nextUrl.pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/auth/login", nextUrl));
-  }
-
-  // If not logged in and trying to access protected API
-  if (!isLoggedIn && nextUrl.pathname.startsWith("/api")) {
-    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-  }
-
+  // For protected routes, auth will be checked in the route handlers
+  // This avoids edge runtime issues with NextAuth
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
