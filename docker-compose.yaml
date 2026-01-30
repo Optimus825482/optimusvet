@@ -1,50 +1,28 @@
 version: "3.8"
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: optimus-vet-db
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-optimusvet}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Next.js Application
+  # Uses external PostgreSQL database at 77.42.68.4:5437
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: optimus-vet-app
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-optimusvet}
+      DATABASE_URL: postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://optimus.celilturan.com.tr}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-secret-key-here}
       NODE_ENV: production
       PORT: 3002
     ports:
       - "3002:3002"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./public:/app/public
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
 
-volumes:
-  postgres_data:
-    driver: local
+# Note: PostgreSQL service removed - using external database
+# Database: postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet

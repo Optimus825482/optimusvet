@@ -9,30 +9,24 @@
 
 ---
 
-## 🔧 Coolify Kurulum Adımları
+## �️ Database Bilgileri (Harici PostgreSQL)
 
-### 1️⃣ PostgreSQL Service Oluştur
+⚠️ **ÖNEMLİ**: Bu proje harici bir PostgreSQL database kullanıyor!
 
-Coolify Dashboard'da:
+- **Host**: `77.42.68.4`
+- **Port**: `5437`
+- **Database**: `optimusvet`
+- **User**: `postgres`
+- **Password**: `518518Erkan`
+- **Connection String**: `postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet`
 
-1. **New Resource** → **Database** → **PostgreSQL 16**
-2. Ayarlar:
-   - **Name**: `optimus-vet-db`
-   - **Database**: `optimusvet`
-   - **Username**: `postgres`
-   - **Password**: Güçlü bir şifre oluştur (kaydet!)
-   - **Port**: `5432` (internal)
-3. **Save** ve **Start**
-
-**Database URL'i kopyala:**
-
-```
-postgresql://postgres:YOUR_PASSWORD@optimus-vet-db:5432/optimusvet
-```
+**Coolify'da PostgreSQL service oluşturmaya gerek YOK!** ❌
 
 ---
 
-### 2️⃣ Application Service Oluştur
+## 🔧 Coolify Kurulum Adımları
+
+### 1️⃣ Application Service Oluştur
 
 Coolify Dashboard'da:
 
@@ -49,13 +43,13 @@ Coolify Dashboard'da:
 
 ---
 
-### 3️⃣ Environment Variables Ekle
+### 2️⃣ Environment Variables Ekle
 
 Coolify'da **Environment Variables** sekmesine git ve şunları ekle:
 
 ```bash
-# Database (PostgreSQL service'den aldığın URL)
-DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@optimus-vet-db:5432/optimusvet
+# External PostgreSQL Database
+DATABASE_URL=postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet
 
 # NextAuth (ÖNEMLİ: Güvenli secret oluştur!)
 NEXTAUTH_URL=https://optimus.celilturan.com.tr
@@ -76,7 +70,7 @@ openssl rand -base64 32
 
 ---
 
-### 4️⃣ Build & Deploy Settings
+### 3️⃣ Build & Deploy Settings
 
 Coolify'da **Build** sekmesine git:
 
@@ -104,7 +98,7 @@ npm ci
 
 ---
 
-### 5️⃣ Domain & SSL Ayarları
+### 4️⃣ Domain & SSL Ayarları
 
 Coolify'da **Domains** sekmesine git:
 
@@ -132,6 +126,34 @@ TTL: 3600
 
 ---
 
+### 5️⃣ Network & Firewall (ÖNEMLİ!)
+
+Harici database kullandığınız için Coolify sunucusunun database'e erişebilmesi gerekiyor:
+
+**Database sunucusunda (77.42.68.4):**
+
+1. PostgreSQL'in port `5437`'yi dinlediğinden emin ol
+2. Firewall'da Coolify sunucu IP'sine izin ver:
+
+```bash
+# PostgreSQL config (postgresql.conf)
+listen_addresses = '*'
+
+# PostgreSQL HBA (pg_hba.conf)
+host    optimusvet    postgres    [COOLIFY_SERVER_IP]/32    md5
+```
+
+**Coolify sunucusunda:**
+
+1. Outbound port `5437` açık olmalı
+2. Database connection test et:
+
+```bash
+psql "postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet" -c "SELECT 1"
+```
+
+---
+
 ### 6️⃣ Health Check (Opsiyonel ama Önerilen)
 
 Coolify'da **Health Check** sekmesine git:
@@ -151,7 +173,7 @@ Coolify'da **Health Check** sekmesine git:
    - ✅ Dependencies install
    - ✅ Prisma generate
    - ✅ Next.js build
-   - ✅ Database migration
+   - ✅ Database migration (harici DB'ye)
    - ✅ Application start
 
 3. Deployment tamamlandığında:
@@ -160,7 +182,7 @@ Coolify'da **Health Check** sekmesine git:
 
 ---
 
-## 🗄️ Database Migration & Seed
+## 🗄️ Database Migration
 
 ### İlk Kurulum
 
@@ -170,6 +192,8 @@ Deployment sonrası otomatik olarak migration çalışır:
 npx prisma migrate deploy
 ```
 
+Bu komut harici database'e (`77.42.68.4:5437`) bağlanıp migration'ları uygular.
+
 ### Manuel Migration (Gerekirse)
 
 Coolify terminal'den:
@@ -178,11 +202,18 @@ Coolify terminal'den:
 # Migration çalıştır
 npx prisma migrate deploy
 
+# Migration durumunu kontrol et
+npx prisma migrate status
+
 # Database'i sıfırla (DİKKAT: Tüm veriyi siler!)
 npx prisma migrate reset --force
 ```
 
 ### Excel Verilerini Import Etme
+
+Veriler zaten database'de olduğu için import'a gerek yok! ✅
+
+Eğer yeniden import gerekirse:
 
 1. Coolify **File Manager**'dan Excel dosyalarını upload et:
    - `satis.xlsx`
@@ -257,13 +288,13 @@ Coolify'da **Metrics** sekmesi:
 ## 🔒 Güvenlik Kontrol Listesi
 
 - ✅ `NEXTAUTH_SECRET` güçlü ve unique (32+ karakter)
-- ✅ Database şifresi güçlü (16+ karakter, özel karakterler)
+- ✅ Database şifresi güçlü (`518518Erkan`)
 - ✅ `.env` dosyası `.gitignore`'da
 - ✅ SSL sertifikası aktif (HTTPS)
 - ✅ Force HTTPS aktif
-- ✅ Database sadece internal network'te erişilebilir
-- ✅ Firewall kuralları aktif
-- ✅ Regular backup aktif (Coolify otomatik)
+- ✅ Database firewall'da Coolify IP'sine izin verildi
+- ✅ PostgreSQL `pg_hba.conf` güncellendi
+- ✅ Database connection SSL kullanıyor (önerilen)
 
 ---
 
@@ -282,16 +313,47 @@ npm run build
 
 ### Database Connection Hatası
 
-**Hata**: `Can't reach database server`
+**Hata**: `Can't reach database server at 77.42.68.4:5437`
 
-1. PostgreSQL service'in çalıştığını kontrol et
-2. `DATABASE_URL` environment variable'ını kontrol et
-3. Database service name'i doğru mu? (`optimus-vet-db`)
-4. Network connectivity test et:
+**Çözümler:**
+
+1. **Network connectivity test et:**
 
 ```bash
 # Coolify terminal'den
-nc -zv optimus-vet-db 5432
+nc -zv 77.42.68.4 5437
+telnet 77.42.68.4 5437
+```
+
+2. **Database sunucusunda firewall kontrol et:**
+
+```bash
+# Database sunucusunda
+sudo ufw status
+sudo ufw allow from [COOLIFY_IP] to any port 5437
+```
+
+3. **PostgreSQL config kontrol et:**
+
+```bash
+# Database sunucusunda
+cat /etc/postgresql/*/main/postgresql.conf | grep listen_addresses
+cat /etc/postgresql/*/main/pg_hba.conf | grep optimusvet
+```
+
+4. **PostgreSQL restart:**
+
+```bash
+# Database sunucusunda
+sudo systemctl restart postgresql
+```
+
+5. **Connection string kontrol et:**
+
+```bash
+# Coolify terminal'den
+echo $DATABASE_URL
+# Çıktı: postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet
 ```
 
 ### Migration Hatası
@@ -323,32 +385,44 @@ Coolify'da **Port** ayarını kontrol et:
 
 ---
 
-## 📞 Destek & İletişim
-
-### Logları İncele
-
-```bash
-# Application logs
-docker logs optimus-vet -f
-
-# Database logs
-docker logs optimus-vet-db -f
-```
+## 📞 Database Yönetimi
 
 ### Database Backup
 
-Coolify otomatik backup yapar, manuel backup için:
+Database sunucusunda manuel backup:
 
 ```bash
-# Coolify terminal'den
-pg_dump -U postgres optimusvet > backup_$(date +%Y%m%d).sql
+# Database sunucusunda
+pg_dump -h 77.42.68.4 -p 5437 -U postgres optimusvet > backup_$(date +%Y%m%d).sql
 ```
 
 ### Restore Backup
 
 ```bash
-# Coolify terminal'den
-psql -U postgres optimusvet < backup_20260130.sql
+# Database sunucusunda
+psql -h 77.42.68.4 -p 5437 -U postgres optimusvet < backup_20260130.sql
+```
+
+### Database Monitoring
+
+```bash
+# Coolify terminal'den database'e bağlan
+psql "postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet"
+
+# Aktif connection'ları gör
+SELECT * FROM pg_stat_activity WHERE datname = 'optimusvet';
+
+# Database boyutunu gör
+SELECT pg_size_pretty(pg_database_size('optimusvet'));
+
+# Tablo boyutlarını gör
+SELECT
+  schemaname,
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ```
 
 ---
@@ -357,7 +431,9 @@ psql -U postgres optimusvet < backup_20260130.sql
 
 Deployment öncesi kontrol et:
 
-- [ ] PostgreSQL service oluşturuldu ve çalışıyor
+- [ ] Harici PostgreSQL database erişilebilir (`77.42.68.4:5437`)
+- [ ] Database firewall'da Coolify IP'sine izin verildi
+- [ ] PostgreSQL `pg_hba.conf` güncellendi
 - [ ] Environment variables eklendi
 - [ ] `NEXTAUTH_SECRET` güçlü ve unique
 - [ ] Domain DNS ayarları yapıldı
@@ -368,7 +444,7 @@ Deployment öncesi kontrol et:
 - [ ] İlk deployment başarılı
 - [ ] `/auth/register` ile ilk kullanıcı oluşturuldu
 - [ ] Dashboard'a giriş yapıldı
-- [ ] Excel verileri import edildi (opsiyonel)
+- [ ] Database connection test edildi
 
 ---
 
@@ -382,4 +458,13 @@ Sistem başarıyla deploy edildiğinde:
 ✅ **Dashboard**: `https://optimus.celilturan.com.tr/dashboard`
 ✅ **Health Check**: `https://optimus.celilturan.com.tr/api/health`
 
-**İlk kullanıcıyı oluştur ve sistemi kullanmaya başla!** 🎊
+**Veriler zaten database'de olduğu için direkt kullanmaya başlayabilirsin!** 🎊
+
+---
+
+## 🔗 Faydalı Linkler
+
+- **GitHub Repo**: https://github.com/Optimus825482/optimusvet.git
+- **Coolify Docs**: https://coolify.io/docs
+- **Next.js Docs**: https://nextjs.org/docs
+- **Prisma Docs**: https://www.prisma.io/docs
