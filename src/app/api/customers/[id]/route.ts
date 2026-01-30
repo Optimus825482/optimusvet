@@ -18,8 +18,7 @@ export async function GET(
           orderBy: { createdAt: "desc" },
         },
         transactions: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
+          orderBy: { date: "desc" },
           include: {
             items: {
               include: { product: true },
