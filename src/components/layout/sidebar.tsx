@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Sparkles,
   Zap,
+  BookOpen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -39,6 +40,12 @@ const navItems = [
     href: "/dashboard/customers",
     icon: Users,
     color: "text-emerald-500",
+  },
+  {
+    title: "Veresiye Defteri",
+    href: "/dashboard/receivables",
+    icon: BookOpen,
+    color: "text-amber-500",
   },
   {
     title: "Tedarikçiler",

@@ -47,16 +47,24 @@ interface Supplier {
 
 export default function SuppliersPage() {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const limit = 20;
 
   const { data, isLoading, error } = useQuery<{
     suppliers: Supplier[];
-    total: number;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   }>({
-    queryKey: ["suppliers", search],
+    queryKey: ["suppliers", search, page],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      params.set("limit", "50");
+      params.set("page", page.toString());
+      params.set("limit", limit.toString());
 
       const res = await fetch(`/api/suppliers?${params}`);
       if (!res.ok) throw new Error("Tedarikçiler yüklenemedi");
@@ -92,7 +100,10 @@ export default function SuppliersPage() {
           <Input
             placeholder="Tedarikçi ara (ad, telefon, kod)..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="pl-10"
           />
         </div>
@@ -105,7 +116,7 @@ export default function SuppliersPage() {
             <div className="text-sm text-muted-foreground">
               Toplam Tedarikçi
             </div>
-            <div className="text-2xl font-bold">{data.total}</div>
+            <div className="text-2xl font-bold">{data.pagination.total}</div>
           </Card>
           <Card className="p-4">
             <div className="text-sm text-muted-foreground">Borçlu</div>
@@ -114,24 +125,13 @@ export default function SuppliersPage() {
             </div>
           </Card>
           <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Toplam Borç</div>
-            <div className="text-2xl font-bold text-destructive">
-              {formatCurrency(
-                Math.abs(
-                  data.suppliers
-                    .filter((s) => s.balance < 0)
-                    .reduce((sum, s) => sum + Number(s.balance || 0), 0),
-                ),
-              )}
-            </div>
+            <div className="text-sm text-muted-foreground">Bu Sayfada</div>
+            <div className="text-2xl font-bold">{data.suppliers.length}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Toplam İşlem</div>
+            <div className="text-sm text-muted-foreground">Sayfa</div>
             <div className="text-2xl font-bold">
-              {data.suppliers.reduce(
-                (sum, s) => sum + Number(s._count.transactions || 0),
-                0,
-              )}
+              {data.pagination.page} / {data.pagination.totalPages}
             </div>
           </Card>
         </div>
@@ -174,129 +174,200 @@ export default function SuppliersPage() {
       ) : (
         <div className="grid gap-4">
           {data?.suppliers.map((supplier) => (
-            <Card key={supplier.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  {/* Supplier Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold truncate">
-                        {supplier.name}
-                      </h3>
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        {supplier.code}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      {supplier.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>{supplier.phone}</span>
-                        </div>
-                      )}
-                      {supplier.email && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5" />
-                          <span className="truncate">{supplier.email}</span>
-                        </div>
-                      )}
-                      {supplier.city && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5" />
-                          <span>{supplier.city}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Stats & Actions */}
-                  <div className="flex items-start gap-4">
-                    {/* Transaction Count */}
-                    <div className="text-center">
-                      <div className="flex items-center gap-1 text-primary">
-                        <ShoppingBag className="w-4 h-4" />
-                        <span className="font-semibold">
-                          {supplier._count.transactions}
-                        </span>
+            <Link
+              key={supplier.id}
+              href={`/dashboard/suppliers/${supplier.id}`}
+            >
+              <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Supplier Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold truncate">
+                          {supplier.name}
+                        </h3>
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          {supplier.code}
+                        </Badge>
                       </div>
-                      <div className="text-xs text-muted-foreground">İşlem</div>
-                    </div>
 
-                    {/* Balance */}
-                    <div className="text-right">
-                      <div
-                        className={`font-semibold ${
-                          supplier.balance < 0
-                            ? "text-destructive"
-                            : supplier.balance > 0
-                              ? "text-emerald-600"
-                              : ""
-                        }`}
-                      >
-                        {formatCurrency(Math.abs(supplier.balance))}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {supplier.balance < 0
-                          ? "Borç"
-                          : supplier.balance > 0
-                            ? "Alacak"
-                            : "Bakiye"}
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        {supplier.phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>{supplier.phone}</span>
+                          </div>
+                        )}
+                        {supplier.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-3.5 h-3.5" />
+                            <span className="truncate">{supplier.email}</span>
+                          </div>
+                        )}
+                        {supplier.city && (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>{supplier.city}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0"
+                    {/* Stats & Actions */}
+                    <div className="flex items-start gap-4">
+                      {/* Transaction Count */}
+                      <div className="text-center">
+                        <div className="flex items-center gap-1 text-primary">
+                          <ShoppingBag className="w-4 h-4" />
+                          <span className="font-semibold">
+                            {supplier._count.transactions}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          İşlem
+                        </div>
+                      </div>
+
+                      {/* Balance */}
+                      <div className="text-right">
+                        <div
+                          className={`font-semibold ${
+                            supplier.balance < 0
+                              ? "text-destructive"
+                              : supplier.balance > 0
+                                ? "text-emerald-600"
+                                : ""
+                          }`}
                         >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/suppliers/${supplier.id}`}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Detay
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={`/dashboard/suppliers/${supplier.id}/edit`}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Düzenle
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={`/dashboard/purchases/new?supplierId=${supplier.id}`}
-                          >
-                            <ShoppingBag className="w-4 h-4 mr-2" />
-                            Alım Yap
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Sil
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
+                          {formatCurrency(Math.abs(supplier.balance))}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {supplier.balance < 0
+                            ? "Borç"
+                            : supplier.balance > 0
+                              ? "Alacak"
+                              : "Bakiye"}
+                        </div>
+                      </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t text-xs text-muted-foreground">
-                  <span>Kayıt: {formatDate(supplier.createdAt)}</span>
-                  <span>{supplier._count.transactions} alım</span>
-                </div>
-              </CardContent>
-            </Card>
+                      {/* Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          asChild
+                          onClick={(e) => e.preventDefault()}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/suppliers/${supplier.id}`}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Detay
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/dashboard/suppliers/${supplier.id}/edit`}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Düzenle
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link
+                              href={`/dashboard/purchases/new?supplierId=${supplier.id}`}
+                            >
+                              <ShoppingBag className="w-4 h-4 mr-2" />
+                              Alım Yap
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={(e) => e.preventDefault()}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Sil
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t text-xs text-muted-foreground">
+                    <span>Kayıt: {formatDate(supplier.createdAt)}</span>
+                    <span>{supplier._count.transactions} alım</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {data && data.pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t pt-4">
+          <div className="text-sm text-muted-foreground">
+            Toplam {data.pagination.total} tedarikçiden {(page - 1) * limit + 1}
+            -{Math.min(page * limit, data.pagination.total)} arası gösteriliyor
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Önceki
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from(
+                { length: data.pagination.totalPages },
+                (_, i) => i + 1,
+              )
+                .filter((p) => {
+                  return (
+                    p === 1 ||
+                    p === data.pagination.totalPages ||
+                    Math.abs(p - page) <= 1
+                  );
+                })
+                .map((p, idx, arr) => (
+                  <div key={p} className="flex items-center">
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span className="px-2 text-muted-foreground">...</span>
+                    )}
+                    <Button
+                      variant={p === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setPage(p)}
+                      className="min-w-[40px]"
+                    >
+                      {p}
+                    </Button>
+                  </div>
+                ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((p) => Math.min(data.pagination.totalPages, p + 1))
+              }
+              disabled={page === data.pagination.totalPages}
+            >
+              Sonraki
+            </Button>
+          </div>
         </div>
       )}
 

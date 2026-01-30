@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { recalculateCustomerSalesStatus } from "@/lib/payment-allocation";
 
 // GET single transaction with items
 export async function GET(
@@ -170,6 +171,16 @@ export async function DELETE(
               },
             },
           });
+        } else if (transaction.type === "CUSTOMER_PAYMENT") {
+          // For payments, increase customer balance (remove payment)
+          await tx.customer.update({
+            where: { id: transaction.customerId },
+            data: {
+              balance: {
+                increment: Number(transaction.total),
+              },
+            },
+          });
         }
       }
 
@@ -183,12 +194,25 @@ export async function DELETE(
         where: { id },
       });
 
+      // 5. Eğer tahsilat silindiyse, müşterinin satış durumlarını yeniden hesapla
+      if (transaction.type === "CUSTOMER_PAYMENT" && transaction.customerId) {
+        // Transaction dışında çalıştır (çünkü tx içinde recalculate çalışmaz)
+        // Bu işlemi transaction sonrasında yapacağız
+      }
+
       return {
         success: true,
         message: "İşlem başarıyla iptal edildi ve stoklar geri yüklendi",
         code: transaction.code,
+        customerId: transaction.customerId,
+        type: transaction.type,
       };
     });
+
+    // Eğer tahsilat silindiyse, satış durumlarını yeniden hesapla
+    if (result.type === "CUSTOMER_PAYMENT" && result.customerId) {
+      await recalculateCustomerSalesStatus(result.customerId);
+    }
 
     return NextResponse.json(result);
   } catch (error) {

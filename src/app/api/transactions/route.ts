@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { allocatePaymentToSales } from "@/lib/payment-allocation";
 
 // GET all transactions (sales/purchases)
 export async function GET(request: NextRequest) {
@@ -249,6 +250,21 @@ export async function POST(request: NextRequest) {
         data: {
           balance: {
             increment: total - paidAmount,
+          },
+        },
+      });
+    }
+
+    // Eğer tahsilat (CUSTOMER_PAYMENT) ise, en eski alacaklardan düş
+    if (type === "CUSTOMER_PAYMENT" && body.customerId) {
+      await allocatePaymentToSales(body.customerId, total);
+
+      // Müşteri bakiyesini güncelle (tahsilat bakiyeyi azaltır)
+      await prisma.customer.update({
+        where: { id: body.customerId },
+        data: {
+          balance: {
+            decrement: total,
           },
         },
       });

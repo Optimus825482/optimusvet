@@ -59,16 +59,24 @@ const getInitials = (name: string) => {
 
 export default function CustomersPage() {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const limit = 20;
 
   const { data, isLoading, error } = useQuery<{
     customers: Customer[];
-    total: number;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   }>({
-    queryKey: ["customers", search],
+    queryKey: ["customers", search, page],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      params.set("limit", "50");
+      params.set("page", page.toString());
+      params.set("limit", limit.toString());
 
       const res = await fetch(`/api/customers?${params}`);
       if (!res.ok) throw new Error("Müşteriler yüklenemedi");
@@ -104,7 +112,10 @@ export default function CustomersPage() {
           <Input
             placeholder="Müşteri ara (ad, telefon, kod)..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1); // Reset to page 1 on search
+            }}
             className="pl-10"
           />
         </div>
@@ -115,7 +126,7 @@ export default function CustomersPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="p-4">
             <div className="text-sm text-muted-foreground">Toplam Müşteri</div>
-            <div className="text-2xl font-bold">{data.total}</div>
+            <div className="text-2xl font-bold">{data.pagination.total}</div>
           </Card>
           <Card className="p-4">
             <div className="text-sm text-muted-foreground">
@@ -126,25 +137,13 @@ export default function CustomersPage() {
             </div>
           </Card>
           <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Toplam Hayvan</div>
-            <div className="text-2xl font-bold">
-              {data.customers.reduce(
-                (sum, c) => sum + Number(c._count.animals || 0),
-                0,
-              )}
-            </div>
+            <div className="text-sm text-muted-foreground">Bu Sayfada</div>
+            <div className="text-2xl font-bold">{data.customers.length}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Toplam Alacak</div>
-            <div className="text-2xl font-bold text-destructive">
-              ₺
-              {data.customers
-                .filter((c) => c.balance > 0)
-                .reduce((sum, c) => sum + Number(c.balance || 0), 0)
-                .toLocaleString("tr-TR", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+            <div className="text-sm text-muted-foreground">Sayfa</div>
+            <div className="text-2xl font-bold">
+              {data.pagination.page} / {data.pagination.totalPages}
             </div>
           </Card>
         </div>
@@ -326,6 +325,65 @@ export default function CustomersPage() {
               </Card>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {data && data.pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t pt-4">
+          <div className="text-sm text-muted-foreground">
+            Toplam {data.pagination.total} müşteriden {(page - 1) * limit + 1}-
+            {Math.min(page * limit, data.pagination.total)} arası gösteriliyor
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Önceki
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from(
+                { length: data.pagination.totalPages },
+                (_, i) => i + 1,
+              )
+                .filter((p) => {
+                  // Show first, last, current, and adjacent pages
+                  return (
+                    p === 1 ||
+                    p === data.pagination.totalPages ||
+                    Math.abs(p - page) <= 1
+                  );
+                })
+                .map((p, idx, arr) => (
+                  <div key={p} className="flex items-center">
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span className="px-2 text-muted-foreground">...</span>
+                    )}
+                    <Button
+                      variant={p === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setPage(p)}
+                      className="min-w-[40px]"
+                    >
+                      {p}
+                    </Button>
+                  </div>
+                ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((p) => Math.min(data.pagination.totalPages, p + 1))
+              }
+              disabled={page === data.pagination.totalPages}
+            >
+              Sonraki
+            </Button>
+          </div>
         </div>
       )}
 

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const [suppliers, total] = await Promise.all([
       prisma.supplier.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { name: "asc" },
         skip,
         take: limit,
         include: {
@@ -42,10 +42,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       suppliers,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error("Suppliers GET error:", error);

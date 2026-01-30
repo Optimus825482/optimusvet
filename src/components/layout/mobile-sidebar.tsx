@@ -15,12 +15,14 @@ import {
   Syringe,
   Calendar,
   Settings,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
   { title: "Ana Sayfa", href: "/dashboard", icon: LayoutDashboard },
   { title: "Stok", href: "/dashboard/products", icon: Package },
   { title: "Müşteriler", href: "/dashboard/customers", icon: Users },
+  { title: "Veresiye Defteri", href: "/dashboard/receivables", icon: BookOpen },
   { title: "Firmalar", href: "/dashboard/suppliers", icon: Building2 },
   { title: "Satış", href: "/dashboard/sales", icon: ShoppingCart },
   { title: "Satın Alma", href: "/dashboard/purchases", icon: Receipt },

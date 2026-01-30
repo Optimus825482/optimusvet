@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
             select: { animals: true, transactions: true },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { name: "asc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
