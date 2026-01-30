@@ -38,7 +38,9 @@ RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 3002
+
+ENV PORT=3002
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
