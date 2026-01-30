@@ -167,16 +167,7 @@ export default function LoginPage() {
               Giriş Yap
             </Button>
 
-            <p className="text-sm text-muted-foreground text-center">
-              Hesabınız yok mu?{" "}
-              <Link
-                href="/auth/register"
-                className="text-primary font-medium hover:underline"
-              >
-                Kayıt olun
-              </Link>
-            </p>
-          </CardFooter>
+            </CardFooter>
         </form>
 
         <div className="pb-4 text-center">

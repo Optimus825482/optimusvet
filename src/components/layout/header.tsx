@@ -198,6 +198,9 @@ export function Header({ onMenuClick }: HeaderProps) {
                       <span className="text-sm font-black text-slate-900 truncate max-w-[120px]">
                         {session?.user?.name || "Kullanıcı"}
                       </span>
+                      <span className="text-[10px] font-semibold text-primary truncate max-w-[120px]">
+                        {process.env.NEXT_PUBLIC_APP_NAME || "OPTIMUS VET"}
+                      </span>
                       <span className="text-[10px] text-primary font-black uppercase tracking-tighter">
                         {(session?.user?.role as any) === "ADMIN" ||
                         (session?.user?.role as any) === "admin"
