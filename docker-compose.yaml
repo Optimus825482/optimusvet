@@ -9,15 +9,23 @@ services:
       dockerfile: Dockerfile
     container_name: optimus-vet-app
     environment:
-      DATABASE_URL: postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet
+      DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://optimus.celilturan.com.tr}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-secret-key-here}
-      NODE_ENV: production
-      PORT: 3002
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3002}
     ports:
-      - "3002:3002"
+      - "${PORT:-3002}:${PORT:-3002}"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3002/api/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,4 +33,9 @@ services:
     restart: unless-stopped
 
 # Note: PostgreSQL service removed - using external database
-# Database: postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet
+# Configure these environment variables in Coolify:
+# - DATABASE_URL=postgres://postgres:518518Erkan@77.42.68.4:5437/optimusvet
+# - NEXTAUTH_SECRET=[generate with: openssl rand -base64 32]
+# - NEXTAUTH_URL=https://optimus.celilturan.com.tr
+# - NODE_ENV=production
+# - PORT=3002

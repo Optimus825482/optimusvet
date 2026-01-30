@@ -23,8 +23,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init and wget for proper signal handling and health checks
+RUN apk add --no-cache dumb-init wget
 
 # Copy from builder
 COPY --from=builder /app/node_modules ./node_modules
