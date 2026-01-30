@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -17,6 +17,9 @@ import {
   Loader2,
   User,
   X,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +68,10 @@ export default function CustomerDetailPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const { data: customer, isLoading } = useQuery<Customer>({
     queryKey: ["customer", params.id],
@@ -345,89 +352,186 @@ export default function CustomerDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Recent Transactions */}
+      {/* Transactions Table with Pagination */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Receipt className="w-5 h-5" />
-            Son İşlemler ({customer.transactions.length})
+            Tüm İşlemler ({customer.transactions.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {customer.transactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Henüz işlem kaydı yok</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {customer.transactions.map((transaction) => (
-                <Link
-                  key={transaction.id}
-                  href={`/dashboard/sales/${transaction.id}`}
-                  className="block"
-                >
-                  <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{transaction.code}</span>
-                        <Badge 
-                          variant={
-                            transaction.type === "SALE" 
-                              ? "default" 
-                              : transaction.type === "CUSTOMER_PAYMENT"
-                                ? "outline"
-                                : "secondary"
-                          }
-                          className={`text-xs ${
-                            transaction.type === "SALE" 
-                              ? "bg-emerald-500 hover:bg-emerald-600" 
-                              : transaction.type === "CUSTOMER_PAYMENT"
-                                ? "border-blue-500 text-blue-600"
-                                : ""
-                          }`}
-                        >
-                          {transaction.type === "SALE" 
-                            ? "Satış" 
-                            : transaction.type === "CUSTOMER_PAYMENT"
-                              ? "Ödeme"
-                              : transaction.type === "TREATMENT"
-                                ? "Tedavi"
-                                : transaction.type}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(transaction.date)}
-                      </p>
+          {(() => {
+            // Sort transactions by date (descending)
+            const sortedTransactions = [...customer.transactions].sort((a, b) => 
+              new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+
+            // Pagination calculations
+            const totalPages = Math.ceil(sortedTransactions.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedTransactions = sortedTransactions.slice(startIndex, endIndex);
+
+            const goToPage = (page: number) => {
+              setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+            };
+
+            return sortedTransactions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Henüz işlem kaydı yok</p>
+              </div>
+            ) : (
+              <>
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted/50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">İşlem Kodu</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Tarih</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Tür</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold">Tutar</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold">Durum</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {paginatedTransactions.map((transaction) => (
+                        <tr key={transaction.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="font-medium">{transaction.code}</span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {formatDate(transaction.date)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge 
+                              variant={
+                                transaction.type === "SALE" 
+                                  ? "default" 
+                                  : transaction.type === "CUSTOMER_PAYMENT"
+                                    ? "outline"
+                                    : "secondary"
+                              }
+                              className={`text-xs ${
+                                transaction.type === "SALE" 
+                                  ? "bg-emerald-500 hover:bg-emerald-600" 
+                                  : transaction.type === "CUSTOMER_PAYMENT"
+                                    ? "border-blue-500 text-blue-600"
+                                    : ""
+                              }`}
+                            >
+                              {transaction.type === "SALE" 
+                                ? "Satış" 
+                                : transaction.type === "CUSTOMER_PAYMENT"
+                                  ? "Ödeme"
+                                  : transaction.type === "TREATMENT"
+                                    ? "Tedavi"
+                                    : transaction.type}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            {Number(transaction.total || 0).toLocaleString("tr-TR", {
+                              style: "currency",
+                              currency: "TRY",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge
+                              variant={
+                                transaction.status === "PAID"
+                                  ? "default"
+                                  : transaction.status === "PARTIAL"
+                                    ? "secondary"
+                                    : "destructive"
+                              }
+                              className="text-xs"
+                            >
+                              {transaction.status === "PAID"
+                                ? "Ödendi"
+                                : transaction.status === "PARTIAL"
+                                  ? "Kısmi"
+                                  : "Bekliyor"}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                            >
+                              <Link href={`/dashboard/sales/${transaction.id}`}>
+                                <Eye className="w-4 h-4" />
+                              </Link>
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Sayfa {currentPage} / {totalPages} ({sortedTransactions.length} işlem)
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold">
-                        {Number(transaction.total || 0).toLocaleString("tr-TR", {
-                          style: "currency",
-                          currency: "TRY",
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Önceki
+                      </Button>
+                      
+                      {/* Page numbers */}
+                      <div className="flex gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => goToPage(pageNum)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
                         })}
                       </div>
-                      <Badge
-                        variant={
-                          transaction.status === "PAID"
-                            ? "default"
-                            : transaction.status === "PARTIAL"
-                              ? "secondary"
-                              : "destructive"
-                        }
-                        className="text-xs"
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
                       >
-                        {transaction.status === "PAID"
-                          ? "Ödendi"
-                          : transaction.status === "PARTIAL"
-                            ? "Kısmi"
-                            : "Bekliyor"}
-                      </Badge>
+                        Sonraki
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
