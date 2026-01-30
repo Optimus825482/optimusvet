@@ -84,7 +84,7 @@ export const animalSchema = z.object({
     "OTHER",
   ]),
   breed: z.string().optional(),
-  gender: z.enum(["MALE", "FEMALE", "UNKNOWN"]).optional(),
+  gender: z.enum(["MALE", "FEMALE"]).optional().nullable(),
   birthDate: z.date().optional().nullable(),
   weight: z.coerce.number().optional(),
   color: z.string().optional(),

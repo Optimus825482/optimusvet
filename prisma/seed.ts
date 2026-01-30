@@ -451,7 +451,7 @@ async function main() {
     prisma.reminder.create({
       data: {
         userId: admin.id,
-        type: ReminderType.GENERAL,
+        type: ReminderType.CUSTOM,
         title: "Kontrol Muayenesi",
         description: "Pamuk için kontrol muayenesi.",
         dueDate: nextWeek,

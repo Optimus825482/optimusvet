@@ -69,6 +69,8 @@ model Customer {
   phone        String?
   email        String?
   address      String?
+  city         String?
+  district     String?
   taxNumber    String?
   taxOffice    String?
   image        String?

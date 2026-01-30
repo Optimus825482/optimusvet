@@ -33,7 +33,7 @@ const speciesOptions = [
 const genderOptions = [
     { value: "MALE", label: "Erkek" },
     { value: "FEMALE", label: "Dişi" },
-    { value: "UNKNOWN", label: "Bilinmiyor" },
+    
 ]
 
 interface Customer {
@@ -54,7 +54,7 @@ export default function NewAnimalPage() {
 
     const { register, handleSubmit, setValue, formState: { errors } } = useForm<AnimalInput>({
         resolver: zodResolver(animalSchema) as any,
-        defaultValues: { species: "DOG", gender: "UNKNOWN" },
+        defaultValues: { species: "DOG" },
     })
 
     const { data: customersData } = useQuery<{ customers: Customer[] }>({
@@ -146,7 +146,7 @@ export default function NewAnimalPage() {
                         <div className="space-y-2"><Label htmlFor="name" required>Hayvan Adı</Label><Input id="name" placeholder="Örn: Pamuk, Karabaş" error={errors.name?.message} {...register("name")} /></div>
                         <div className="grid sm:grid-cols-2 gap-4">
                             <div className="space-y-2"><Label htmlFor="species" required>Tür</Label><Select defaultValue="DOG" onValueChange={(value) => setValue("species", value as any)}><SelectTrigger><SelectValue placeholder="Tür seçin" /></SelectTrigger><SelectContent>{speciesOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent></Select></div>
-                            <div className="space-y-2"><Label htmlFor="gender">Cinsiyet</Label><Select defaultValue="UNKNOWN" onValueChange={(value) => setValue("gender", value as any)}><SelectTrigger><SelectValue placeholder="Cinsiyet seçin" /></SelectTrigger><SelectContent>{genderOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent></Select></div>
+                            <div className="space-y-2"><Label htmlFor="gender">Cinsiyet</Label><Select  onValueChange={(value) => setValue("gender", value as any)}><SelectTrigger><SelectValue placeholder="Cinsiyet seçin" /></SelectTrigger><SelectContent>{genderOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}</SelectContent></Select></div>
                         </div>
                         <div className="grid sm:grid-cols-2 gap-4">
                             <div className="space-y-2"><Label htmlFor="breed">Irk</Label><Input id="breed" placeholder="Örn: Golden Retriever" {...register("breed")} /></div>
