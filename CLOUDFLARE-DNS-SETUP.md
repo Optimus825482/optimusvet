@@ -2,8 +2,8 @@
 
 ## 📋 Gerekli Bilgiler
 
-- **Domain**: `celilturan.com.tr`
-- **Subdomain**: `optimus.celilturan.com.tr`
+- **Domain**: `aihaberleri.org`
+- **Subdomain**: `turan.aihaberleri.org`
 - **Coolify Sunucu IP**: `[COOLIFY_SUNUCU_IP_ADRESI]` (Coolify'dan öğren)
 
 ---
@@ -150,7 +150,7 @@ Full (strict)        ✅ ÖNERİLEN (en güvenli)
 ### 5.2. Domain Ekle
 
 ```
-Domain: optimus.celilturan.com.tr
+Domain: turan.aihaberleri.org
 ```
 
 **Add Domain** butonuna tıkla.
