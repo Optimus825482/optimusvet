@@ -147,6 +147,7 @@ model Product {
   priceHistory     PriceHistory[]
   stockMovements   StockMovement[]
   transactionItems TransactionItem[]
+  treatments       Treatment[]
 
   @@map("products")
 }
@@ -247,6 +248,7 @@ model Animal {
   customer     Customer         @relation(fields: [customerId], references: [id])
   reminders    Reminder[]
   transactions Transaction[]
+  illnesses    Illness[]
 
   @@map("animals")
 }
@@ -438,6 +440,29 @@ enum ProductCategory {
   FEED              // Yem
 }
 
+enum IllnessStatus {
+  ACTIVE      // Aktif tedavi görüyor
+  RECOVERED   // İyileşti
+  CHRONIC     // Kronik hastalık
+  MONITORING  // İzleme altında
+  CANCELLED   // İptal edildi
+}
+
+enum IllnessSeverity {
+  MILD        // Hafif
+  MODERATE    // Orta
+  SEVERE      // Şiddetli
+  CRITICAL    // Kritik
+}
+
+enum TreatmentStatus {
+  PLANNED     // Planlandı
+  ONGOING     // Devam ediyor
+  COMPLETED   // Tamamlandı
+  PAUSED      // Durduruldu
+  CANCELLED   // İptal edildi
+}
+
 model PriceHistory {
   id            String   @id @default(cuid())
   productId     String
@@ -451,4 +476,55 @@ model PriceHistory {
   @@map("price_history")
   @@index([productId])
   @@index([createdAt])
+}
+
+model Illness {
+  id            String          @id @default(cuid())
+  animalId      String
+  name          String
+  diagnosis     String?
+  symptoms      String?
+  findings      String?
+  notes         String?
+  startDate     DateTime        @default(now())
+  endDate       DateTime?
+  status        IllnessStatus   @default(ACTIVE)
+  severity      IllnessSeverity @default(MODERATE)
+  attachments   String[]        @default([])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  animal        Animal          @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  treatments    Treatment[]
+
+  @@map("illnesses")
+  @@index([animalId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model Treatment {
+  id              String          @id @default(cuid())
+  illnessId       String
+  productId       String?
+  name            String
+  dosage          String?
+  frequency       String?
+  duration        String?
+  startDate       DateTime        @default(now())
+  endDate         DateTime?
+  applicationMethod String?
+  notes           String?
+  cost            Decimal         @default(0) @db.Decimal(12, 2)
+  status          TreatmentStatus @default(ONGOING)
+  nextCheckupDate DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  illness         Illness         @relation(fields: [illnessId], references: [id], onDelete: Cascade)
+  product         Product?        @relation(fields: [productId], references: [id])
+
+  @@map("treatments")
+  @@index([illnessId])
+  @@index([productId])
+  @@index([status])
+  @@index([startDate])
 }
