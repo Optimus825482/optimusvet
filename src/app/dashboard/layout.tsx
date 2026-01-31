@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Header } from "@/components/layout/header";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export default function DashboardLayout({
   children,
@@ -55,7 +56,9 @@ export default function DashboardLayout({
       <div className="lg:pl-64">
         <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
 
-        <main className="p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
+        <ErrorBoundary>
+          <main className="p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
+        </ErrorBoundary>
       </div>
 
       {/* Bottom Navigation - Mobile */}

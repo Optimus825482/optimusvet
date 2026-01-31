@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cache Temizle - Optimus Vet</title>
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        text-align: center;
+      }
+      button {
+        background: #0ea5e9;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        margin: 10px;
+      }
+      button:hover {
+        background: #0284c7;
+      }
+      .success {
+        color: #10b981;
+        margin-top: 20px;
+      }
+      .error {
+        color: #ef4444;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧹 Cache Temizle</h1>
+    <p>Uygulama güncellemelerini görmüyorsanız cache'i temizleyin.</p>
+
+    <button onclick="clearAllCache()">Tüm Cache'i Temizle</button>
+    <button onclick="unregisterServiceWorker()">Service Worker'ı Kaldır</button>
+    <button onclick="clearAndReload()">Temizle ve Yenile</button>
+
+    <div id="status"></div>
+
+    <script>
+      async function clearAllCache() {
+        const status = document.getElementById("status");
+        try {
+          // Clear all caches
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((name) => caches.delete(name)));
+
+          // Clear localStorage
+          localStorage.clear();
+
+          // Clear sessionStorage
+          sessionStorage.clear();
+
+          status.innerHTML = '<p class="success">✅ Tüm cache temizlendi!</p>';
+        } catch (error) {
+          status.innerHTML = `<p class="error">❌ Hata: ${error.message}</p>`;
+        }
+      }
+
+      async function unregisterServiceWorker() {
+        const status = document.getElementById("status");
+        try {
+          const registrations =
+            await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((reg) => reg.unregister()));
+          status.innerHTML =
+            '<p class="success">✅ Service Worker kaldırıldı!</p>';
+        } catch (error) {
+          status.innerHTML = `<p class="error">❌ Hata: ${error.message}</p>`;
+        }
+      }
+
+      async function clearAndReload() {
+        await clearAllCache();
+        await unregisterServiceWorker();
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 1000);
+      }
+    </script>
+  </body>
+</html>
