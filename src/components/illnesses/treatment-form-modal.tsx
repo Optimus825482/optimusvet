@@ -94,6 +94,8 @@ export function TreatmentFormModal({
   const queryClient = useQueryClient();
   const isEdit = !!treatment;
   const [productOpen, setProductOpen] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
+  const [pendingTreatmentData, setPendingTreatmentData] = useState<any>(null);
 
   // Fetch products for selection
   const { data: productsData } = useQuery({
@@ -146,7 +148,9 @@ export function TreatmentFormModal({
   }, [selectedProductId, products, form, isEdit]);
 
   const mutation = useMutation({
-    mutationFn: async (data: TreatmentFormValues) => {
+    mutationFn: async (
+      data: TreatmentFormValues & { createReminders?: boolean },
+    ) => {
       const url = isEdit
         ? `/api/treatments/${treatment.id}`
         : `/api/illnesses/${illnessId}/treatments`;
@@ -162,6 +166,7 @@ export function TreatmentFormModal({
           startDate: data.startDate.toISOString(),
           endDate: data.endDate?.toISOString(),
           nextCheckupDate: data.nextCheckupDate?.toISOString(),
+          createReminders: data.createReminders,
         }),
       });
 
@@ -175,11 +180,14 @@ export function TreatmentFormModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["illnesses"] });
       queryClient.invalidateQueries({ queryKey: ["treatments", illnessId] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
       toast.success(
         isEdit ? "Tedavi kaydı güncellendi" : "Tedavi kaydı oluşturuldu",
       );
       onOpenChange(false);
       form.reset();
+      setShowReminderDialog(false);
+      setPendingTreatmentData(null);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -187,8 +195,31 @@ export function TreatmentFormModal({
   });
 
   const onSubmit = (data: TreatmentFormValues) => {
-    mutation.mutate(data);
+    // Eğer başlangıç, bitiş veya kontrol tarihi varsa hatırlatma sor
+    const hasRemindableDates =
+      data.startDate || data.endDate || data.nextCheckupDate;
+
+    if (!isEdit && hasRemindableDates) {
+      setPendingTreatmentData(data);
+      setShowReminderDialog(true);
+    } else {
+      mutation.mutate(data);
+    }
   };
+
+  const handleReminderConfirm = (createReminders: boolean) => {
+    if (pendingTreatmentData) {
+      mutation.mutate({ ...pendingTreatmentData, createReminders });
+    }
+  };
+
+  // Close reminder dialog when main modal closes
+  useEffect(() => {
+    if (!open) {
+      setShowReminderDialog(false);
+      setPendingTreatmentData(null);
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,7 +263,16 @@ export function TreatmentFormModal({
                     <PopoverContent className="w-[400px] p-0">
                       <Command>
                         <CommandInput placeholder="Ürün ara..." />
-                        <CommandEmpty>Ürün bulunamadı.</CommandEmpty>
+                        <CommandEmpty>
+                          <div className="p-4 text-center space-y-2">
+                            <p className="text-sm text-muted-foreground">
+                              Ürün bulunamadı.
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Manuel tedavi adı girebilirsiniz
+                            </p>
+                          </div>
+                        </CommandEmpty>
                         <CommandGroup className="max-h-64 overflow-auto">
                           {products.map((product: any) => (
                             <CommandItem
@@ -240,6 +280,7 @@ export function TreatmentFormModal({
                               value={product.name}
                               onSelect={() => {
                                 form.setValue("productId", product.id);
+                                form.setValue("name", product.name);
                                 setProductOpen(false);
                               }}
                             >
@@ -602,6 +643,99 @@ export function TreatmentFormModal({
           </form>
         </Form>
       </DialogContent>
+
+      {/* Hatırlatma Onay Dialog'u */}
+      <Dialog open={showReminderDialog} onOpenChange={setShowReminderDialog}>
+        <DialogContent className="rounded-[2rem] p-6 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900">
+              Hatırlatma Oluştur
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 font-medium mt-2">
+              Bu tedavi için ajandanıza hatırlatma eklemek ister misiniz?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {pendingTreatmentData?.startDate && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <CalendarIcon className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Başlangıç
+                  </p>
+                  <p className="text-sm font-black text-slate-900">
+                    {format(pendingTreatmentData.startDate, "dd MMMM yyyy", {
+                      locale: tr,
+                    })}
+                  </p>
+                </div>
+              </div>
+            )}
+            {pendingTreatmentData?.endDate && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-100">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                  <CalendarIcon className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Bitiş
+                  </p>
+                  <p className="text-sm font-black text-slate-900">
+                    {format(pendingTreatmentData.endDate, "dd MMMM yyyy", {
+                      locale: tr,
+                    })}
+                  </p>
+                </div>
+              </div>
+            )}
+            {pendingTreatmentData?.nextCheckupDate && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <CalendarIcon className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Kontrol Randevusu
+                  </p>
+                  <p className="text-sm font-black text-slate-900">
+                    {format(
+                      pendingTreatmentData.nextCheckupDate,
+                      "dd MMMM yyyy",
+                      { locale: tr },
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-3">
+            <Button
+              variant="outline"
+              onClick={() => handleReminderConfirm(false)}
+              className="rounded-xl border-slate-200 font-bold h-11 flex-1"
+              disabled={mutation.isPending}
+            >
+              Hayır, Sadece Kaydet
+            </Button>
+            <Button
+              onClick={() => handleReminderConfirm(true)}
+              className="rounded-xl font-bold h-11 flex-1 shadow-lg shadow-primary/20"
+              disabled={mutation.isPending}
+            >
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Kaydediliyor...
+                </>
+              ) : (
+                "Evet, Hatırlatma Ekle"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

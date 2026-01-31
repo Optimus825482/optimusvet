@@ -24,6 +24,7 @@ export const createTreatmentSchema = z.object({
   cost: z.number().nonnegative().default(0),
   status: treatmentStatusEnum.default("ONGOING"),
   nextCheckupDate: z.string().datetime().or(z.date()).optional().nullable(),
+  createReminders: z.boolean().optional(), // Hatırlatma oluşturma flag'i
 });
 
 // Update Treatment Schema

@@ -48,6 +48,60 @@ export async function GET(
   }
 }
 
+// PATCH update reminder (mark as completed, etc.)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+
+    const updateData: any = {};
+
+    if (body.isCompleted !== undefined) {
+      updateData.isCompleted = body.isCompleted;
+    }
+    if (body.isRead !== undefined) {
+      updateData.isRead = body.isRead;
+    }
+
+    const reminder = await prisma.reminder.update({
+      where: { id },
+      data: updateData,
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+        animal: {
+          select: {
+            id: true,
+            name: true,
+            species: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(reminder);
+  } catch (error) {
+    console.error("Reminder update error:", error);
+    return NextResponse.json(
+      { error: "Hatırlatma güncellenemedi" },
+      { status: 500 },
+    );
+  }
+}
+
 // PUT update reminder
 export async function PUT(
   request: NextRequest,

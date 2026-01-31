@@ -109,6 +109,9 @@ export async function POST(
       illnessId,
     });
 
+    // Extract createReminders flag
+    const createReminders = body.createReminders === true;
+
     // If product is selected, verify it exists and has stock
     if (validatedData.productId) {
       const product = await prisma.product.findUnique({
@@ -173,12 +176,62 @@ export async function POST(
                 id: true,
                 name: true,
                 species: true,
+                customerId: true,
               },
             },
           },
         },
       },
     });
+
+    // Create reminders if requested
+    if (createReminders) {
+      const reminders = [];
+      const animal = treatment.illness.animal;
+
+      if (validatedData.startDate) {
+        reminders.push({
+          userId: session.user.id as string,
+          customerId: animal.customerId,
+          animalId: animal.id,
+          type: "TREATMENT" as const,
+          title: `Tedavi Başlangıcı: ${validatedData.name}`,
+          description: `${animal.name} için ${validatedData.name} tedavisi başlıyor`,
+          dueDate: new Date(validatedData.startDate),
+          isCompleted: false,
+        });
+      }
+
+      if (validatedData.endDate) {
+        reminders.push({
+          userId: session.user.id as string,
+          customerId: animal.customerId,
+          animalId: animal.id,
+          type: "TREATMENT" as const,
+          title: `Tedavi Bitişi: ${validatedData.name}`,
+          description: `${animal.name} için ${validatedData.name} tedavisi bitiyor`,
+          dueDate: new Date(validatedData.endDate),
+          isCompleted: false,
+        });
+      }
+
+      if (validatedData.nextCheckupDate) {
+        reminders.push({
+          userId: session.user.id as string,
+          customerId: animal.customerId,
+          animalId: animal.id,
+          type: "CHECKUP" as const,
+          title: `Kontrol Randevusu: ${validatedData.name}`,
+          description: `${animal.name} için ${validatedData.name} tedavisi kontrol randevusu`,
+          dueDate: new Date(validatedData.nextCheckupDate),
+          isCompleted: false,
+        });
+      }
+
+      if (reminders.length > 0) {
+        await prisma.reminder.createMany({ data: reminders });
+      }
+    }
 
     return NextResponse.json(treatment, { status: 201 });
   } catch (error) {

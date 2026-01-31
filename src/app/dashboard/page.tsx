@@ -21,6 +21,8 @@ import {
   CreditCard,
   Loader2,
   Search,
+  Bell,
+  Check,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,9 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import { ActiveRemindersPopup } from "@/components/reminders/active-reminders-popup";
 
 interface DashboardData {
   summary: {
@@ -764,6 +769,9 @@ export default function DashboardPage() {
           DESIGNED FOR PROFESSIONAL CLINICAL EXCELLENCE
         </p>
       </footer>
+
+      {/* Aktif Hatırlatmalar Popup - Yeni Component */}
+      <ActiveRemindersPopup />
 
       {/* Tahsilat Modal */}
       <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>

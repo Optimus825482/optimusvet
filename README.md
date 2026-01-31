@@ -1,5 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## ⚠️ ÖNEMLI UYARI - YASAKLI KOMUTLAR
+
+**ASLA** şu komutları çalıştırma (tüm veritabanını siler):
+
+```bash
+npx prisma migrate reset        # ❌ YASAK!
+npx prisma migrate reset --force # ❌ YASAK!
+DROP DATABASE optimusvet;       # ❌ YASAK!
+```
+
+Detaylar için: [DANGEROUS-COMMANDS.md](./DANGEROUS-COMMANDS.md)
+
 ## Getting Started
 
 First, run the development server:
