@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -20,6 +21,7 @@ import {
   BookOpen,
   Download,
   HelpCircle,
+  Shield,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +29,16 @@ import { usePWA } from "@/hooks/use-pwa";
 import { PWAInstallHelpModal } from "@/components/pwa-install-help-modal";
 import { useToast } from "@/hooks/use-toast";
 
-const navItems = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: any;
+  color: string;
+  adminOnly?: boolean;
+  subItems?: NavItem[];
+}
+
+const navItems: NavItem[] = [
   {
     title: "Ana Sayfa",
     href: "/dashboard",
@@ -93,21 +104,52 @@ const navItems = [
     href: "/dashboard/settings",
     icon: Settings,
     color: "text-slate-500",
+    subItems: [
+      {
+        title: "Audit Logları",
+        href: "/dashboard/audit-logs",
+        icon: Shield,
+        color: "text-red-500",
+        adminOnly: true,
+      },
+    ],
   },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const { isInstallable, isInstalled, installPWA } = usePWA();
   const { toast } = useToast();
+
+  const isAdmin = session?.user?.role === "ADMIN";
 
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  // Auto-expand settings if on audit logs page
+  useEffect(() => {
+    if (
+      pathname === "/dashboard/audit-logs" &&
+      !expandedItems.includes("/dashboard/settings")
+    ) {
+      setExpandedItems(["/dashboard/settings"]);
+    }
+  }, [pathname]);
+
+  const toggleExpand = (href: string) => {
+    setExpandedItems((prev) =>
+      prev.includes(href)
+        ? prev.filter((item) => item !== href)
+        : [...prev, href],
+    );
+  };
 
   // Check if we came from receivables page
   const fromReceivables = searchParams.get("from") === "receivables";
@@ -148,6 +190,14 @@ export function Sidebar() {
           <>
             <ul className="space-y-1">
               {navItems.map((item) => {
+                // Filter admin-only items
+                if (item.adminOnly && !isAdmin) return null;
+
+                // Filter admin-only sub-items
+                const visibleSubItems = item.subItems?.filter(
+                  (subItem) => !subItem.adminOnly || isAdmin,
+                );
+
                 // Special handling for receivables when coming from receivables page
                 const isActive =
                   pathname === item.href ||
@@ -157,45 +207,126 @@ export function Sidebar() {
                     fromReceivables &&
                     pathname.match(/^\/dashboard\/customers\/[^/]+$/));
 
+                const isExpanded = expandedItems.includes(item.href);
+                const hasSubItems =
+                  visibleSubItems && visibleSubItems.length > 0;
+
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "group flex items-center gap-4 px-3 py-2 rounded-2xl text-[13px] font-black transition-all duration-300 relative overflow-hidden",
-                        isActive
-                          ? "bg-slate-900 text-white shadow-xl shadow-slate-900/10"
-                          : "text-slate-700 hover:text-slate-900 hover:bg-slate-50 uppercase tracking-tight",
-                      )}
-                    >
-                      <div
+                    {hasSubItems ? (
+                      <>
+                        <button
+                          onClick={() => toggleExpand(item.href)}
+                          className={cn(
+                            "group flex items-center gap-4 px-3 py-2 rounded-2xl text-[13px] font-black transition-all duration-300 relative overflow-hidden w-full",
+                            isActive
+                              ? "bg-slate-900 text-white shadow-xl shadow-slate-900/10"
+                              : "text-slate-700 hover:text-slate-900 hover:bg-slate-50 uppercase tracking-tight",
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300",
+                              isActive
+                                ? "bg-white/10 text-white group-hover:rotate-6"
+                                : cn(
+                                    "group-hover:bg-current/5 group-hover:rotate-3",
+                                    item.color,
+                                  ),
+                            )}
+                          >
+                            <item.icon
+                              className={cn(
+                                "w-5 h-5",
+                                !isActive && "text-current",
+                              )}
+                            />
+                          </div>
+
+                          <span className="relative z-10 font-black flex-1 text-left">
+                            {item.title}
+                          </span>
+
+                          <ChevronRight
+                            className={cn(
+                              "w-4 h-4 transition-transform duration-300",
+                              isExpanded && "rotate-90",
+                            )}
+                          />
+
+                          {isActive && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary" />
+                          )}
+                        </button>
+
+                        {isExpanded && (
+                          <ul className="mt-1 ml-8 space-y-1">
+                            {visibleSubItems.map((subItem) => {
+                              const isSubActive = pathname === subItem.href;
+                              return (
+                                <li key={subItem.href}>
+                                  <Link
+                                    href={subItem.href}
+                                    className={cn(
+                                      "group flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] font-bold transition-all duration-300",
+                                      isSubActive
+                                        ? "bg-slate-100 text-slate-900"
+                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
+                                    )}
+                                  >
+                                    <subItem.icon
+                                      className={cn("w-4 h-4", subItem.color)}
+                                    />
+                                    <span>{subItem.title}</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </>
+                    ) : (
+                      <Link
+                        href={item.href}
                         className={cn(
-                          "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300",
+                          "group flex items-center gap-4 px-3 py-2 rounded-2xl text-[13px] font-black transition-all duration-300 relative overflow-hidden",
                           isActive
-                            ? "bg-white/10 text-white group-hover:rotate-6"
-                            : cn(
-                                "group-hover:bg-current/5 group-hover:rotate-3",
-                                item.color,
-                              ),
+                            ? "bg-slate-900 text-white shadow-xl shadow-slate-900/10"
+                            : "text-slate-700 hover:text-slate-900 hover:bg-slate-50 uppercase tracking-tight",
                         )}
                       >
-                        <item.icon
-                          className={cn("w-5 h-5", !isActive && "text-current")}
-                        />
-                      </div>
+                        <div
+                          className={cn(
+                            "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300",
+                            isActive
+                              ? "bg-white/10 text-white group-hover:rotate-6"
+                              : cn(
+                                  "group-hover:bg-current/5 group-hover:rotate-3",
+                                  item.color,
+                                ),
+                          )}
+                        >
+                          <item.icon
+                            className={cn(
+                              "w-5 h-5",
+                              !isActive && "text-current",
+                            )}
+                          />
+                        </div>
 
-                      <span className="relative z-10 font-black">
-                        {item.title}
-                      </span>
+                        <span className="relative z-10 font-black">
+                          {item.title}
+                        </span>
 
-                      {isActive && (
-                        <ChevronRight className="ml-auto w-4 h-4 text-primary relative z-10" />
-                      )}
+                        {isActive && (
+                          <ChevronRight className="ml-auto w-4 h-4 text-primary relative z-10" />
+                        )}
 
-                      {isActive && (
-                        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary" />
-                      )}
-                    </Link>
+                        {isActive && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary" />
+                        )}
+                      </Link>
+                    )}
                   </li>
                 );
               })}

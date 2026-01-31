@@ -1,0 +1,230 @@
+/**
+ * CUSTOMERS API - WITH AUDIT LOGGING
+ * 
+ * Bu dosya audit entegrasyonunun nasıl yapılacağını gösterir.
+ * Gerçek implementasyon için route.ts dosyasını bu şekilde güncelleyin.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { customerSchema } from "@/lib/validations";
+import { auth } from "@/lib/auth";
+import { getAuditContext } from "@/lib/audit-context";
+import { auditCreate, auditUpdate, auditDelete } from "@/lib/audit";
+
+// GET - Müşteri listesi (Audit: READ - opsiyonel)
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || "";
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "20");
+
+    const where: Record<string, unknown> = {
+      isActive: true,
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { code: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        include: {
+          _count: {
+            select: { animals: true, transactions: true },
+          },
+        },
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.customer.count({ where }),
+    ]);
+
+    // Audit: READ işlemi (opsiyonel - sadece kritik tablolar için)
+    // const context = await getAuditContext(request);
+    // await auditRead('customers', 'list', context);
+
+    return NextResponse.json({
+      customers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Customers GET error:", error);
+    return NextResponse.json(
+      { error: "Müşteriler yüklenirken hata oluştu" },
+      { status: 500 },
+    );
+  }
+}
+
+// POST - Yeni müşteri ekle (Audit: CREATE)
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const validatedData = customerSchema.parse(body);
+
+    // Generate code
+    const lastCustomer = await prisma.customer.findFirst({
+      orderBy: { code: "desc" },
+      select: { code: true },
+    });
+    const lastNumber = lastCustomer
+      ? parseInt(lastCustomer.code.split("-")[1])
+      : 0;
+    const newCode = `MUS-${(lastNumber + 1).toString().padStart(4, "0")}`;
+
+    const customer = await prisma.customer.create({
+      data: {
+        ...validatedData,
+        code: newCode,
+        email: validatedData.email || null,
+      },
+    });
+
+    // ✅ AUDIT LOG: CREATE
+    const context = await getAuditContext(request);
+    await auditCreate('customers', customer.id, customer, context);
+
+    return NextResponse.json(customer, { status: 201 });
+  } catch (error: unknown) {
+    console.error("Customer POST error:", error);
+
+    if (error && typeof error === "object" && "errors" in error) {
+      return NextResponse.json(
+        {
+          error: "Geçersiz veri",
+          details: (error as { errors: unknown }).errors,
+        },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Müşteri eklenirken hata oluştu" },
+      { status: 500 },
+    );
+  }
+}
+
+// PUT - Müşteri güncelle (Audit: UPDATE)
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID gerekli" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const validatedData = customerSchema.parse(body);
+
+    // ✅ AUDIT: Önce eski değerleri al
+    const oldCustomer = await prisma.customer.findUnique({
+      where: { id },
+    });
+
+    if (!oldCustomer) {
+      return NextResponse.json({ error: "Müşteri bulunamadı" }, { status: 404 });
+    }
+
+    // Update customer
+    const customer = await prisma.customer.update({
+      where: { id },
+      data: {
+        ...validatedData,
+        email: validatedData.email || null,
+      },
+    });
+
+    // ✅ AUDIT LOG: UPDATE
+    const context = await getAuditContext(request);
+    await auditUpdate('customers', customer.id, oldCustomer, customer, context);
+
+    return NextResponse.json(customer);
+  } catch (error: unknown) {
+    console.error("Customer PUT error:", error);
+
+    if (error && typeof error === "object" && "errors" in error) {
+      return NextResponse.json(
+        {
+          error: "Geçersiz veri",
+          details: (error as { errors: unknown }).errors,
+        },
+        { status: 400 },
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Müşteri güncellenirken hata oluştu" },
+      { status: 500 },
+    );
+  }
+}
+
+// DELETE - Müşteri sil (Audit: DELETE)
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID gerekli" }, { status: 400 });
+    }
+
+    // ✅ AUDIT: Önce silinecek veriyi al
+    const oldCustomer = await prisma.customer.findUnique({
+      where: { id },
+    });
+
+    if (!oldCustomer) {
+      return NextResponse.json({ error: "Müşteri bulunamadı" }, { status: 404 });
+    }
+
+    // Soft delete (isActive = false)
+    await prisma.customer.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    // ✅ AUDIT LOG: DELETE
+    const context = await getAuditContext(request);
+    await auditDelete('customers', id, oldCustomer, context);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Customer DELETE error:", error);
+    return NextResponse.json(
+      { error: "Müşteri silinirken hata oluştu" },
+      { status: 500 },
+    );
+  }
+}

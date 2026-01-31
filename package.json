@@ -68,6 +68,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/lru-cache": "^7.10.9",
     "@types/node": "^20.19.30",
     "@types/pg": "^8.16.0",
     "@types/react": "^19",

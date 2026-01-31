@@ -583,3 +583,50 @@ model CollectionAllocation {
   @@index([collectionId])
   @@index([transactionId])
 }
+
+// =====================================================
+// AUDIT LOG SYSTEM (COMPREHENSIVE TRACKING)
+// =====================================================
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  
+  // Action Details
+  action        AuditAction
+  tableName     String
+  recordId      String
+  
+  // Data Changes (JSON for flexibility)
+  oldValues     Json?       // UPDATE/DELETE için önceki değerler
+  newValues     Json?       // CREATE/UPDATE için yeni değerler
+  changedFields String[]    // UPDATE için değişen alan isimleri
+  
+  // User Context
+  userId        String?
+  userEmail     String?
+  userName      String?
+  
+  // Request Context
+  ipAddress     String?
+  userAgent     String?
+  requestPath   String?
+  requestMethod String?     // GET, POST, PUT, DELETE
+  
+  // Metadata
+  createdAt     DateTime    @default(now())
+  
+  // Indexes for performance
+  @@index([tableName, recordId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([tableName, action, createdAt])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  READ
+}

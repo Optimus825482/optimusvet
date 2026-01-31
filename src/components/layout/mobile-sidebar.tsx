@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { X, PawPrint } from "lucide-react";
+import { X, PawPrint, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -16,9 +18,18 @@ import {
   Calendar,
   Settings,
   BookOpen,
+  Shield,
 } from "lucide-react";
 
-const navItems = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: any;
+  adminOnly?: boolean;
+  subItems?: NavItem[];
+}
+
+const navItems: NavItem[] = [
   { title: "Ana Sayfa", href: "/dashboard", icon: LayoutDashboard },
   { title: "Stok", href: "/dashboard/products", icon: Package },
   { title: "Müşteriler", href: "/dashboard/customers", icon: Users },
@@ -29,7 +40,19 @@ const navItems = [
   { title: "Hayvanlar", href: "/dashboard/animals", icon: PawPrint },
   { title: "Protokoller", href: "/dashboard/protocols", icon: Syringe },
   { title: "Ajanda", href: "/dashboard/calendar", icon: Calendar },
-  { title: "Ayarlar", href: "/dashboard/settings", icon: Settings },
+  {
+    title: "Ayarlar",
+    href: "/dashboard/settings",
+    icon: Settings,
+    subItems: [
+      {
+        title: "Audit Logları",
+        href: "/dashboard/audit-logs",
+        icon: Shield,
+        adminOnly: true,
+      },
+    ],
+  },
 ];
 
 interface MobileSidebarProps {
@@ -40,9 +63,21 @@ interface MobileSidebarProps {
 export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  const isAdmin = session?.user?.role === "ADMIN";
 
   // Check if we came from receivables page
   const fromReceivables = searchParams.get("from") === "receivables";
+
+  const toggleExpand = (href: string) => {
+    setExpandedItems((prev) =>
+      prev.includes(href)
+        ? prev.filter((item) => item !== href)
+        : [...prev, href],
+    );
+  };
 
   return (
     <>
@@ -80,32 +115,98 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
           <nav className="flex-1 overflow-y-auto py-4 px-3">
             <ul className="space-y-1">
               {navItems.map((item) => {
+                // Filter admin-only items
+                if (item.adminOnly && !isAdmin) return null;
+
+                // Filter admin-only sub-items
+                const visibleSubItems = item.subItems?.filter(
+                  (subItem) => !subItem.adminOnly || isAdmin,
+                );
+
                 const isActive =
                   pathname === item.href ||
                   pathname.startsWith(item.href + "/") ||
                   (item.href === "/dashboard/receivables" &&
                     fromReceivables &&
                     pathname.match(/^\/dashboard\/customers\/[^/]+$/));
+
+                const isExpanded = expandedItems.includes(item.href);
+                const hasSubItems =
+                  visibleSubItems && visibleSubItems.length > 0;
+
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={onClose}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                        isActive
-                          ? "bg-primary text-white shadow-md shadow-primary/20"
-                          : "text-slate-700 hover:bg-slate-100",
-                      )}
-                    >
-                      <item.icon
-                        className={cn(
-                          "w-5 h-5",
-                          isActive ? "text-white" : "text-slate-500",
+                    {hasSubItems ? (
+                      <>
+                        <button
+                          onClick={() => toggleExpand(item.href)}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 w-full",
+                            isActive
+                              ? "bg-primary text-white shadow-md shadow-primary/20"
+                              : "text-slate-700 hover:bg-slate-100",
+                          )}
+                        >
+                          <item.icon
+                            className={cn(
+                              "w-5 h-5",
+                              isActive ? "text-white" : "text-slate-500",
+                            )}
+                          />
+                          <span className="flex-1 text-left">{item.title}</span>
+                          <ChevronRight
+                            className={cn(
+                              "w-4 h-4 transition-transform duration-300",
+                              isExpanded && "rotate-90",
+                            )}
+                          />
+                        </button>
+
+                        {isExpanded && (
+                          <ul className="mt-1 ml-6 space-y-1">
+                            {visibleSubItems.map((subItem) => {
+                              const isSubActive = pathname === subItem.href;
+                              return (
+                                <li key={subItem.href}>
+                                  <Link
+                                    href={subItem.href}
+                                    onClick={onClose}
+                                    className={cn(
+                                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                                      isSubActive
+                                        ? "bg-slate-100 text-slate-900"
+                                        : "text-slate-600 hover:bg-slate-50",
+                                    )}
+                                  >
+                                    <subItem.icon className="w-4 h-4" />
+                                    <span>{subItem.title}</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
                         )}
-                      />
-                      <span>{item.title}</span>
-                    </Link>
+                      </>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={onClose}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                          isActive
+                            ? "bg-primary text-white shadow-md shadow-primary/20"
+                            : "text-slate-700 hover:bg-slate-100",
+                        )}
+                      >
+                        <item.icon
+                          className={cn(
+                            "w-5 h-5",
+                            isActive ? "text-white" : "text-slate-500",
+                          )}
+                        />
+                        <span>{item.title}</span>
+                      </Link>
+                    )}
                   </li>
                 );
               })}
