@@ -156,82 +156,135 @@ export async function POST(request: NextRequest) {
  * - Müşteri bakiyesini azaltır
  */
 async function handleCustomerPayment(body: any, session: any) {
-  const amount = Number(body.total || body.amount || 0);
+  try {
+    const amount = Number(body.total || body.amount || 0);
 
-  if (!body.customerId) {
-    return NextResponse.json({ error: "Müşteri ID gerekli" }, { status: 400 });
-  }
+    if (!body.customerId) {
+      console.error("[TAHSILAT] Müşteri ID eksik:", body);
+      return NextResponse.json(
+        { error: "Müşteri ID gerekli" },
+        { status: 400 },
+      );
+    }
 
-  if (amount <= 0) {
-    return NextResponse.json(
-      { error: "Geçerli bir tutar giriniz" },
-      { status: 400 },
-    );
-  }
+    if (amount <= 0) {
+      console.error("[TAHSILAT] Geçersiz tutar:", amount);
+      return NextResponse.json(
+        { error: "Geçerli bir tutar giriniz" },
+        { status: 400 },
+      );
+    }
 
-  // Generate payment code
-  const lastPayment = await prisma.transaction.findFirst({
-    where: { type: "CUSTOMER_PAYMENT" },
-    orderBy: { code: "desc" },
-  });
-  const lastNumber = lastPayment
-    ? parseInt(lastPayment.code.replace(/\D/g, "") || "0")
-    : 0;
-  const code = `TAH-${String(lastNumber + 1).padStart(6, "0")}`;
+    console.log("[TAHSILAT] Başlatılıyor:", {
+      customerId: body.customerId,
+      amount,
+      paymentMethod: body.paymentMethod,
+    });
 
-  // Transaction içinde tüm işlemleri atomik olarak yap
-  const result = await prisma.$transaction(async (tx) => {
-    // 1. Tahsilat kaydı oluştur
-    const payment = await tx.transaction.create({
-      data: {
-        code,
-        type: "CUSTOMER_PAYMENT",
-        customerId: body.customerId,
-        subtotal: amount, // Tahsilatta subtotal = total
-        vatTotal: 0, // Tahsilatta KDV yok
-        discount: 0,
-        total: amount,
-        paidAmount: amount,
-        status: "PAID",
-        paymentMethod: body.paymentMethod || "CASH",
-        notes: body.notes || null,
-        userId: session.user.id,
-        date: body.date ? new Date(body.date) : new Date(),
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            phone: true,
+    // Generate unique payment code (UUID-based to prevent duplicates)
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const code = `TAH-${timestamp}-${random}`;
+
+    console.log("[TAHSILAT] Kod oluşturuldu:", code);
+
+    // Transaction içinde tüm işlemleri atomik olarak yap
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Tahsilat kaydı oluştur
+      console.log("[TAHSILAT] Transaction kaydı oluşturuluyor...");
+      const payment = await tx.transaction.create({
+        data: {
+          code,
+          type: "CUSTOMER_PAYMENT",
+          customerId: body.customerId,
+          subtotal: amount, // Tahsilatta subtotal = total
+          vatTotal: 0, // Tahsilatta KDV yok
+          discount: 0,
+          total: amount,
+          paidAmount: amount,
+          status: "PAID",
+          paymentMethod: body.paymentMethod || "CASH",
+          notes: body.notes || null,
+          userId: session.user.id,
+          date: body.date ? new Date(body.date) : new Date(),
+        },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              phone: true,
+            },
           },
         },
-      },
+      });
+
+      console.log("[TAHSILAT] Transaction kaydı oluşturuldu:", payment.id);
+
+      // 2. En eski alacaklardan düş (FIFO)
+      console.log("[TAHSILAT] Alacaklara dağıtılıyor...");
+      const allocationResult = await allocatePaymentToSalesInTransaction(
+        tx,
+        body.customerId,
+        amount,
+      );
+
+      console.log("[TAHSILAT] Dağıtım tamamlandı:", allocationResult);
+
+      // 3. Müşteri bakiyesini güncelle (tahsilat bakiyeyi AZALTIR)
+      console.log("[TAHSILAT] Müşteri bakiyesi güncelleniyor...");
+      await tx.customer.update({
+        where: { id: body.customerId },
+        data: {
+          balance: { decrement: amount },
+        },
+      });
+
+      console.log("[TAHSILAT] Müşteri bakiyesi güncellendi");
+
+      return {
+        payment,
+        allocation: allocationResult,
+      };
     });
 
-    // 2. En eski alacaklardan düş (FIFO)
-    const allocationResult = await allocatePaymentToSalesInTransaction(
-      tx,
-      body.customerId,
-      amount,
+    console.log("[TAHSILAT] Başarıyla tamamlandı:", result.payment.code);
+
+    return NextResponse.json(result.payment, { status: 201 });
+  } catch (error: any) {
+    console.error("[TAHSILAT] HATA:", {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
+
+    // Prisma unique constraint hatası
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { error: "Bu tahsilat kodu zaten kullanılmış. Lütfen tekrar deneyin." },
+        { status: 409 },
+      );
+    }
+
+    // Foreign key hatası
+    if (error.code === "P2003") {
+      return NextResponse.json(
+        { error: "Müşteri bulunamadı veya silinmiş" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "Tahsilat oluşturulamadı",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
+      { status: 500 },
     );
-
-    // 3. Müşteri bakiyesini güncelle (tahsilat bakiyeyi AZALTIR)
-    await tx.customer.update({
-      where: { id: body.customerId },
-      data: {
-        balance: { decrement: amount },
-      },
-    });
-
-    return {
-      payment,
-      allocation: allocationResult,
-    };
-  });
-
-  return NextResponse.json(result.payment, { status: 201 });
+  }
 }
 
 /**
@@ -256,15 +309,10 @@ async function handleSupplierPayment(body: any, session: any) {
     );
   }
 
-  // Generate payment code
-  const lastPayment = await prisma.transaction.findFirst({
-    where: { type: "SUPPLIER_PAYMENT" },
-    orderBy: { code: "desc" },
-  });
-  const lastNumber = lastPayment
-    ? parseInt(lastPayment.code.replace(/\D/g, "") || "0")
-    : 0;
-  const code = `ODE-${String(lastNumber + 1).padStart(6, "0")}`;
+  // Generate unique payment code (UUID-based to prevent duplicates)
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const code = `ODE-${timestamp}-${random}`;
 
   // Transaction içinde tüm işlemleri atomik olarak yap
   const result = await prisma.$transaction(async (tx) => {
@@ -321,16 +369,11 @@ async function handleSaleOrPurchase(
   session: any,
   type: "SALE" | "PURCHASE" | "TREATMENT",
 ) {
-  // Generate transaction code
+  // Generate unique transaction code (UUID-based to prevent duplicates)
   const prefix = type === "SALE" ? "STS" : type === "TREATMENT" ? "TDV" : "ALS";
-  const lastTransaction = await prisma.transaction.findFirst({
-    where: { type },
-    orderBy: { code: "desc" },
-  });
-  const lastNumber = lastTransaction
-    ? parseInt(lastTransaction.code.replace(/\D/g, "") || "0")
-    : 0;
-  const code = `${prefix}-${String(lastNumber + 1).padStart(6, "0")}`;
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const code = `${prefix}-${timestamp}-${random}`;
 
   // Calculate totals
   let subTotal = body.subtotal || 0;

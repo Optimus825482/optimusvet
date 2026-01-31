@@ -21,6 +21,7 @@ model User {
   reminders     Reminder[]
   sessions      Session[]
   transactions  Transaction[]
+  collections   Collection[]
 
   @@map("users")
 }
@@ -84,6 +85,7 @@ model Customer {
   animals      Animal[]
   reminders    Reminder[]
   transactions Transaction[]
+  collections  Collection[]
 
   @@map("customers")
 }
@@ -189,6 +191,7 @@ model Transaction {
   updatedAt     DateTime          @updatedAt
   payments      Payment[]
   items         TransactionItem[]
+  allocations   CollectionAllocation[]
   animal        Animal?           @relation(fields: [animalId], references: [id])
   customer      Customer?         @relation(fields: [customerId], references: [id])
   supplier      Supplier?         @relation(fields: [supplierId], references: [id])
@@ -527,4 +530,54 @@ model Treatment {
   @@index([productId])
   @@index([status])
   @@index([startDate])
+}
+
+// =====================================================
+// TAHSİLAT SİSTEMİ (COLLECTION SYSTEM)
+// =====================================================
+
+model Collection {
+  id              String                 @id @default(cuid())
+  code            String                 @unique
+  customerId      String
+  userId          String
+  amount          Decimal                @db.Decimal(12, 2)
+  paymentMethod   PaymentMethod
+  collectionDate  DateTime               @default(now())
+  notes           String?
+  
+  // Çek bilgileri (opsiyonel)
+  checkNumber     String?
+  checkDate       DateTime?
+  bankName        String?
+  
+  // Banka transfer bilgileri (opsiyonel)
+  referenceNumber String?
+  
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  
+  customer        Customer               @relation(fields: [customerId], references: [id])
+  user            User                   @relation(fields: [userId], references: [id])
+  allocations     CollectionAllocation[]
+  
+  @@map("collections")
+  @@index([customerId])
+  @@index([collectionDate])
+  @@index([code])
+}
+
+model CollectionAllocation {
+  id            String      @id @default(cuid())
+  collectionId  String
+  transactionId String
+  amount        Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+  
+  collection    Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  
+  @@map("collection_allocations")
+  @@index([collectionId])
+  @@index([transactionId])
 }

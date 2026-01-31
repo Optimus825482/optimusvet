@@ -28,6 +28,9 @@ import {
   Activity,
   ChevronRight,
   PawPrint,
+  Pill,
+  Stethoscope,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +52,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AssignProtocolModal } from "@/components/protocols/assign-protocol-modal";
+import { IllnessFormModal } from "@/components/illnesses/illness-form-modal";
+import { TreatmentFormModal } from "@/components/illnesses/treatment-form-modal";
 
 const speciesIcons: Record<string, string> = {
   DOG: "🐕",
@@ -183,6 +188,9 @@ export default function AnimalDetailPage() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [assignProtocolOpen, setAssignProtocolOpen] = useState(false);
+  const [illnessModalOpen, setIllnessModalOpen] = useState(false);
+  const [treatmentModalOpen, setTreatmentModalOpen] = useState(false);
+  const [selectedIllness, setSelectedIllness] = useState<string | null>(null);
 
   // Fetch animal details
   const { data: animal, isLoading } = useQuery({
@@ -192,6 +200,17 @@ export default function AnimalDetailPage() {
       if (!res.ok) throw new Error("Hayvan bulunamadı");
       return res.json();
     },
+  });
+
+  // Fetch illnesses
+  const { data: illnesses = [], isLoading: illnessesLoading } = useQuery({
+    queryKey: ["illnesses", animalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/animals/${animalId}/illnesses`);
+      if (!res.ok) throw new Error("Hastalıklar yüklenemedi");
+      return res.json();
+    },
+    enabled: !!animalId,
   });
 
   // Delete mutation
@@ -544,91 +563,121 @@ export default function AnimalDetailPage() {
       </div>
 
       {/* Main Tabs Interaction */}
-      <Tabs defaultValue="all" className="space-y-6">
+      <Tabs defaultValue="protocols" className="space-y-6">
         <Card className="rounded-[3rem] border-slate-100 shadow-sm overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-6 border-b border-slate-50 bg-slate-50/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-sm">
-                <Syringe className="h-5 w-5" />
+                <Activity className="h-5 w-5" />
               </div>
               <div>
                 <CardTitle className="text-lg font-black text-slate-800 tracking-tight">
-                  Protokoller
+                  Sağlık Kayıtları
                 </CardTitle>
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">
-                  TEDAVİ & AŞILAMA GEÇMİŞİ
+                  PROTOKOLLER & HASTALIKLAR
                 </p>
               </div>
             </div>
 
             <TabsList className="bg-slate-100/50 p-1 rounded-xl h-10 border border-slate-100">
               <TabsTrigger
-                value="all"
+                value="protocols"
                 className="rounded-lg px-4 text-[10px] font-black uppercase"
               >
-                TÜMÜ
+                PROTOKOLLER
               </TabsTrigger>
               <TabsTrigger
-                value="vaccination"
+                value="illnesses"
                 className="rounded-lg px-4 text-[10px] font-black uppercase"
               >
-                AŞILAMA
-              </TabsTrigger>
-              <TabsTrigger
-                value="fertility"
-                className="rounded-lg px-4 text-[10px] font-black uppercase"
-              >
-                ÜREME
+                HASTALIKLAR
               </TabsTrigger>
             </TabsList>
           </CardHeader>
           <CardContent className="pt-8">
-            {animal.protocols?.length > 0 ? (
-              <div className="space-y-4">
-                <TabsContent value="all" className="space-y-4 animate-slideUp">
+            {/* Protocols Tab */}
+            <TabsContent
+              value="protocols"
+              className="space-y-4 animate-slideUp"
+            >
+              {animal.protocols?.length > 0 ? (
+                <div className="space-y-4">
                   {animal.protocols.map((protocol: any) => (
                     <ProtocolCard key={protocol.id} protocol={protocol} />
                   ))}
-                </TabsContent>
-                <TabsContent
-                  value="vaccination"
-                  className="space-y-4 animate-slideUp"
-                >
-                  {animal.protocols
-                    .filter((p: any) => p.type === "VACCINATION")
-                    .map((protocol: any) => (
-                      <ProtocolCard key={protocol.id} protocol={protocol} />
-                    ))}
-                </TabsContent>
-                <TabsContent
-                  value="fertility"
-                  className="space-y-4 animate-slideUp"
-                >
-                  {animal.protocols
-                    .filter((p: any) => p.type === "FERTILITY")
-                    .map((protocol: any) => (
-                      <ProtocolCard key={protocol.id} protocol={protocol} />
-                    ))}
-                </TabsContent>
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-slate-50/20 rounded-[3rem] border-2 border-dashed border-slate-100">
-                <Syringe className="h-16 w-16 mx-auto text-slate-100 mb-6" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">
-                  Henüz protokol kaydı bulunmuyor
-                </p>
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-slate-50/20 rounded-[3rem] border-2 border-dashed border-slate-100">
+                  <Syringe className="h-16 w-16 mx-auto text-slate-100 mb-6" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">
+                    Henüz protokol kaydı bulunmuyor
+                  </p>
+                  <Button
+                    variant="outline"
+                    asChild
+                    className="mt-6 rounded-xl border-slate-200 bg-white"
+                  >
+                    <button onClick={() => setAssignProtocolOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      İlk Protokolü Başlat
+                    </button>
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Illnesses Tab */}
+            <TabsContent
+              value="illnesses"
+              className="space-y-4 animate-slideUp"
+            >
+              {illnessesLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : illnesses.length > 0 ? (
+                <div className="space-y-4">
+                  {illnesses.map((illness: any) => (
+                    <IllnessCard
+                      key={illness.id}
+                      illness={illness}
+                      onAddTreatment={(illnessId: string) => {
+                        setSelectedIllness(illnessId);
+                        setTreatmentModalOpen(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-slate-50/20 rounded-[3rem] border-2 border-dashed border-slate-100">
+                  <Stethoscope className="h-16 w-16 mx-auto text-slate-100 mb-6" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">
+                    Henüz hastalık kaydı bulunmuyor
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-6 rounded-xl border-slate-200 bg-white"
+                    onClick={() => setIllnessModalOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    İlk Hastalık Kaydını Ekle
+                  </Button>
+                </div>
+              )}
+
+              {/* Add Illness Button (when there are illnesses) */}
+              {illnesses.length > 0 && (
                 <Button
                   variant="outline"
-                  asChild
-                  className="mt-6 rounded-xl border-slate-200 bg-white"
+                  className="w-full rounded-xl border-slate-200 bg-white h-12 font-bold"
+                  onClick={() => setIllnessModalOpen(true)}
                 >
-                  <button onClick={() => setAssignProtocolOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    İlk Protokolü Başlat
-                  </button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Yeni Hastalık Kaydı Ekle
                 </Button>
-              </div>
-            )}
+              )}
+            </TabsContent>
           </CardContent>
         </Card>
       </Tabs>
@@ -712,6 +761,21 @@ export default function AnimalDetailPage() {
         onOpenChange={setAssignProtocolOpen}
         animalId={animalId}
         animalSpecies={animal.species}
+      />
+
+      {/* Illness Form Modal */}
+      <IllnessFormModal
+        open={illnessModalOpen}
+        onOpenChange={setIllnessModalOpen}
+        animalId={animalId}
+      />
+
+      {/* Treatment Form Modal */}
+      <TreatmentFormModal
+        open={treatmentModalOpen}
+        onOpenChange={setTreatmentModalOpen}
+        illnessId={selectedIllness || ""}
+        animalId={animalId}
       />
     </div>
   );
@@ -805,5 +869,179 @@ function ProtocolCard({ protocol }: { protocol: any }) {
         <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
       </div>
     </Link>
+  );
+}
+
+function IllnessCard({
+  illness,
+  onAddTreatment,
+}: {
+  illness: any;
+  onAddTreatment: (illnessId: string) => void;
+}) {
+  const severityColors = {
+    MILD: "bg-blue-50 text-blue-600 border-blue-100",
+    MODERATE: "bg-amber-50 text-amber-600 border-amber-100",
+    SEVERE: "bg-rose-50 text-rose-600 border-rose-100",
+    CRITICAL: "bg-red-50 text-red-600 border-red-100",
+  };
+
+  const statusColors = {
+    ACTIVE: "bg-orange-50 text-orange-600",
+    RECOVERING: "bg-sky-50 text-sky-600",
+    RECOVERED: "bg-emerald-50 text-emerald-600",
+    CHRONIC: "bg-purple-50 text-purple-600",
+  };
+
+  const statusLabels = {
+    ACTIVE: "Aktif",
+    RECOVERING: "İyileşiyor",
+    RECOVERED: "İyileşti",
+    CHRONIC: "Kronik",
+  };
+
+  const severityLabels = {
+    MILD: "Hafif",
+    MODERATE: "Orta",
+    SEVERE: "Ciddi",
+    CRITICAL: "Kritik",
+  };
+
+  return (
+    <div className="p-6 rounded-[2rem] border border-slate-100 bg-white hover:shadow-md transition-all">
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-rose-50 flex items-center justify-center shadow-lg">
+            <Stethoscope className="h-6 w-6 text-rose-600" />
+          </div>
+          <div>
+            <h3 className="font-black text-slate-900 text-lg tracking-tight">
+              {illness.name}
+            </h3>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+              TANI TARİHİ: {formatDate(illness.diagnosisDate)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge
+            className={`rounded-lg font-black text-[10px] uppercase ${
+              statusColors[illness.status as keyof typeof statusColors]
+            }`}
+          >
+            {statusLabels[illness.status as keyof typeof statusLabels]}
+          </Badge>
+          <Badge
+            className={`rounded-lg font-black text-[10px] uppercase border ${
+              severityColors[illness.severity as keyof typeof severityColors]
+            }`}
+          >
+            {severityLabels[illness.severity as keyof typeof severityLabels]}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Symptoms */}
+      {illness.symptoms && (
+        <div className="mb-4 p-4 rounded-xl bg-slate-50/50 border border-slate-100">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            BELİRTİLER
+          </p>
+          <p className="text-sm text-slate-700 leading-relaxed">
+            {illness.symptoms}
+          </p>
+        </div>
+      )}
+
+      {/* Diagnosis */}
+      {illness.diagnosis && (
+        <div className="mb-4 p-4 rounded-xl bg-blue-50/30 border border-blue-100">
+          <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-2">
+            TANI
+          </p>
+          <p className="text-sm text-slate-700 leading-relaxed">
+            {illness.diagnosis}
+          </p>
+        </div>
+      )}
+
+      {/* Treatments */}
+      <div className="mt-6 pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Pill className="h-4 w-4 text-primary" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              TEDAVİLER ({illness.treatments?.length || 0})
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-lg h-8 text-[10px] font-black uppercase"
+            onClick={() => onAddTreatment(illness.id)}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Tedavi Ekle
+          </Button>
+        </div>
+
+        {illness.treatments && illness.treatments.length > 0 ? (
+          <div className="space-y-2">
+            {illness.treatments.map((treatment: any) => (
+              <div
+                key={treatment.id}
+                className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Pill className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      {treatment.medication}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-medium">
+                      {treatment.dosage} • {treatment.frequency}
+                    </p>
+                  </div>
+                </div>
+                <Badge
+                  className={`rounded-lg font-black text-[10px] uppercase ${
+                    treatment.status === "COMPLETED"
+                      ? "bg-emerald-50 text-emerald-600"
+                      : treatment.status === "IN_PROGRESS"
+                        ? "bg-sky-50 text-sky-600"
+                        : "bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  {treatment.status === "COMPLETED"
+                    ? "Tamamlandı"
+                    : treatment.status === "IN_PROGRESS"
+                      ? "Devam Ediyor"
+                      : "Bekliyor"}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 bg-slate-50/20 rounded-xl border border-dashed border-slate-200">
+            <p className="text-xs text-slate-400 font-medium">
+              Henüz tedavi kaydı yok
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Recovery Date */}
+      {illness.recoveryDate && (
+        <div className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
+            İYİLEŞME TARİHİ: {formatDate(illness.recoveryDate)}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
