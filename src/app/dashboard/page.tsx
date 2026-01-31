@@ -279,7 +279,7 @@ export default function DashboardPage() {
             asChild
             className="rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20 bg-slate-900 hover:bg-slate-800 transition-all border-none"
           >
-            <Link href="/dashboard/sales/new">
+            <Link href="/dashboard/sales/new" className="flex items-center">
               <ShoppingCart className="w-4 h-4 mr-2" />
               SATIŞ YAP
             </Link>
