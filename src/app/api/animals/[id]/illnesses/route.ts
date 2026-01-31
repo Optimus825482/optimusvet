@@ -136,7 +136,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: "Geçersiz veri",
-          details: error.errors,
+          details: error.issues,
         },
         { status: 400 },
       );
