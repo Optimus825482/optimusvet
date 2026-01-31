@@ -265,7 +265,7 @@ export default function AnimalsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
-              Kayıtlı Hayvanlar ({data.animals.length})
+              Kayıtlı Hayvanlar ({data?.animals.length || 0})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -300,7 +300,7 @@ export default function AnimalsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.animals.map((animal) => {
+                  {data?.animals.map((animal) => {
                     const colors =
                       speciesColors[animal.species] || speciesColors.OTHER;
                     return (
