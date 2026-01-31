@@ -73,6 +73,7 @@ interface TreatmentFormModalProps {
   onOpenChange: (open: boolean) => void;
   illnessId: string;
   treatment?: any;
+  animalId?: string; // Optional for future use
 }
 
 const statusLabels = {
