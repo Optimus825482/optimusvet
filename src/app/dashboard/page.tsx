@@ -109,7 +109,38 @@ export default function DashboardPage() {
         const res = await fetch("/api/dashboard/stats");
         if (res.ok) {
           const stats = await res.json();
-          setData(stats);
+          console.log("Dashboard stats received:", stats);
+
+          // Validate data structure
+          if (stats && typeof stats === "object") {
+            // Ensure arrays exist
+            const validatedStats = {
+              summary: stats.summary || {
+                todaySales: 0,
+                totalCustomers: 0,
+                totalAnimals: 0,
+                pendingPayments: 0,
+                criticalStock: 0,
+              },
+              todayAppointments: Array.isArray(stats.todayAppointments)
+                ? stats.todayAppointments
+                : [],
+              upcomingVaccines: Array.isArray(stats.upcomingVaccines)
+                ? stats.upcomingVaccines
+                : [],
+              pendingPaymentsList: Array.isArray(stats.pendingPaymentsList)
+                ? stats.pendingPaymentsList
+                : [],
+              lowStockItems: Array.isArray(stats.lowStockItems)
+                ? stats.lowStockItems
+                : [],
+            };
+            setData(validatedStats);
+          } else {
+            console.error("Invalid stats format:", stats);
+          }
+        } else {
+          console.error("Dashboard stats fetch failed:", res.status);
         }
       } catch (error) {
         console.error("Dashboard load error:", error);
