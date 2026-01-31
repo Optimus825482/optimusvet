@@ -210,22 +210,20 @@ export function TreatmentFormModal({
                   </FormLabel>
                   <Popover open={productOpen} onOpenChange={setProductOpen}>
                     <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className={cn(
-                            "rounded-xl justify-between",
-                            !field.value && "text-muted-foreground",
-                          )}
-                        >
-                          {field.value
-                            ? products.find((p: any) => p.id === field.value)
-                                ?.name
-                            : "Ürün seçin (opsiyonel)"}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "rounded-xl justify-between",
+                          !field.value && "text-muted-foreground",
+                        )}
+                      >
+                        {field.value
+                          ? products.find((p: any) => p.id === field.value)
+                              ?.name
+                          : "Ürün seçin (opsiyonel)"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[400px] p-0">
                       <Command>
