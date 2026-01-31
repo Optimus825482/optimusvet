@@ -61,7 +61,7 @@ const treatmentFormSchema = z.object({
   endDate: z.date().optional(),
   applicationMethod: z.string().optional(),
   notes: z.string().optional(),
-  cost: z.coerce.number().nonnegative(),
+  cost: z.union([z.number(), z.string()]).pipe(z.coerce.number().nonnegative()),
   status: z.enum(["PLANNED", "ONGOING", "COMPLETED", "PAUSED", "CANCELLED"]),
   nextCheckupDate: z.date().optional(),
 });
