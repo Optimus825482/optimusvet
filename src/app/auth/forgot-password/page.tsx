@@ -128,10 +128,9 @@ export default function ForgotPasswordPage() {
                 type="submit"
                 className="w-full"
                 size="lg"
-                loading={loading}
                 disabled={loading}
               >
-                Sıfırlama Bağlantısı Gönder
+                {loading ? "Gönderiliyor..." : "Sıfırlama Bağlantısı Gönder"}
               </Button>
             </CardFooter>
           </form>
