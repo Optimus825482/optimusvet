@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { allocatePaymentToSalesInTransaction } from "@/lib/payment-allocation";
+import { randomUUID } from "crypto";
 
 // GET all transactions (sales/purchases)
 export async function GET(request: NextRequest) {
@@ -150,6 +151,43 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * Generate unique transaction code with retry mechanism
+ */
+async function generateUniqueCode(
+  prefix: string,
+  maxRetries = 5,
+): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    // Crypto-based UUID (çok güçlü, collision riski neredeyse yok)
+    const uuid = randomUUID().split("-")[0].toUpperCase(); // İlk 8 karakter
+    const timestamp = Date.now().toString(36).toUpperCase().slice(-6);
+    const code = `${prefix}-${timestamp}-${uuid}`;
+
+    // Kod daha önce kullanılmış mı kontrol et
+    const existing = await prisma.transaction.findUnique({
+      where: { code },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return code; // Benzersiz kod bulundu
+    }
+
+    console.warn(
+      `[CODE_GEN] Duplicate detected (attempt ${i + 1}/${maxRetries}):`,
+      code,
+    );
+
+    // Kısa bir bekleme (race condition için)
+    await new Promise((resolve) => setTimeout(resolve, 10 * (i + 1)));
+  }
+
+  // Son çare: Tam UUID kullan
+  const fullUuid = randomUUID().toUpperCase();
+  return `${prefix}-${fullUuid}`;
+}
+
+/**
  * Müşteri tahsilatı işlemi
  * - Tahsilat kaydı oluşturur
  * - En eski alacaklardan düşer (FIFO)
@@ -181,12 +219,9 @@ async function handleCustomerPayment(body: any, session: any) {
       paymentMethod: body.paymentMethod,
     });
 
-    // Generate unique payment code (UUID-based to prevent duplicates)
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const code = `TAH-${timestamp}-${random}`;
-
-    console.log("[TAHSILAT] Kod oluşturuldu:", code);
+    // Generate unique payment code with retry
+    const code = await generateUniqueCode("TAH");
+    console.log("[TAHSILAT] Benzersiz kod oluşturuldu:", code);
 
     // Transaction içinde tüm işlemleri atomik olarak yap
     const result = await prisma.$transaction(async (tx) => {
@@ -309,10 +344,8 @@ async function handleSupplierPayment(body: any, session: any) {
     );
   }
 
-  // Generate unique payment code (UUID-based to prevent duplicates)
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const code = `ODE-${timestamp}-${random}`;
+  // Generate unique payment code with retry
+  const code = await generateUniqueCode("ODE");
 
   // Transaction içinde tüm işlemleri atomik olarak yap
   const result = await prisma.$transaction(async (tx) => {
@@ -369,11 +402,9 @@ async function handleSaleOrPurchase(
   session: any,
   type: "SALE" | "PURCHASE" | "TREATMENT",
 ) {
-  // Generate unique transaction code (UUID-based to prevent duplicates)
+  // Generate unique transaction code with retry
   const prefix = type === "SALE" ? "STS" : type === "TREATMENT" ? "TDV" : "ALS";
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const code = `${prefix}-${timestamp}-${random}`;
+  const code = await generateUniqueCode(prefix);
 
   // Calculate totals
   let subTotal = body.subtotal || 0;
