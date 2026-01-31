@@ -285,14 +285,11 @@ export default function DashboardPage() {
             </Link>
           </Button>
           <Button
-            asChild
             className="rounded-2xl h-12 px-6 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-emerald-500/20 bg-emerald-600 hover:bg-emerald-700 transition-all border-none"
             onClick={() => setShowPaymentModal(true)}
           >
-            <div className="flex items-center cursor-pointer">
-              <CreditCard className="w-4 h-4 mr-2" />
-              TAHSİLAT YAP
-            </div>
+            <CreditCard className="w-4 h-4 mr-2" />
+            TAHSİLAT YAP
           </Button>
         </div>
       </div>
