@@ -149,10 +149,9 @@ export default function LoginPage() {
               type="submit"
               className="w-full"
               size="lg"
-              loading={loading}
               disabled={loading}
             >
-              Giriş Yap
+              {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
             </Button>
           </CardFooter>
         </form>

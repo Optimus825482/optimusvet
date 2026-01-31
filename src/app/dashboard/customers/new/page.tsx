@@ -242,9 +242,15 @@ export default function NewCustomerPage() {
           <Button variant="outline" type="button" asChild>
             <Link href="/dashboard/customers">İptal</Link>
           </Button>
-          <Button type="submit" loading={loading}>
-            <Save className="w-4 h-4 mr-2" />
-            Kaydet
+          <Button type="submit" disabled={loading}>
+            {loading ? (
+              "Kaydediliyor..."
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Kaydet
+              </>
+            )}
           </Button>
         </div>
       </form>

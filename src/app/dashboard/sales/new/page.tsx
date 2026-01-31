@@ -718,9 +718,9 @@ export default function NewSalePage() {
           <Button
             className="w-full h-12 text-lg"
             onClick={handleSubmit}
-            loading={loading}
-            disabled={cart.length === 0}
+            disabled={loading || cart.length === 0}
           >
+            {loading ? "İşleniyor..." : "Satışı Tamamla"}
             <Save className="w-5 h-5 mr-2" />
             Satışı Kaydet
           </Button>

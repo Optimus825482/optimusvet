@@ -429,9 +429,15 @@ export default function NewAnimalPage() {
           <Button variant="outline" type="button" asChild>
             <Link href="/dashboard/animals">İptal</Link>
           </Button>
-          <Button type="submit" loading={loading} disabled={!selectedCustomer}>
-            <Save className="w-4 h-4 mr-2" />
-            Kaydet
+          <Button type="submit" disabled={loading || !selectedCustomer}>
+            {loading ? (
+              "Kaydediliyor..."
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Kaydet
+              </>
+            )}
           </Button>
         </div>
       </form>
