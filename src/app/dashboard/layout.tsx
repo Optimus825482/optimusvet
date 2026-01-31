@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -17,15 +17,20 @@ export default function DashboardLayout({
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Only redirect if we're sure user is not authenticated
-  // Don't redirect while loading to avoid race condition
-  if (status === "unauthenticated") {
-    router.push("/auth/login");
-    return null;
-  }
+  // Redirect to login if unauthenticated (using useEffect to avoid render issues)
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/login");
+    }
+  }, [status, router]);
 
   // Show nothing while loading to avoid hydration issues
   if (status === "loading") {
+    return null;
+  }
+
+  // Show nothing while redirecting
+  if (status === "unauthenticated") {
     return null;
   }
 
