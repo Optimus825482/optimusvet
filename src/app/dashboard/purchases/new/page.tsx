@@ -157,6 +157,12 @@ export default function NewPurchasePage() {
   };
 
   const handleSubmit = async () => {
+    // Prevent double submission
+    if (loading) {
+      console.warn("[PURCHASES] Duplicate submission prevented");
+      return;
+    }
+
     if (!selectedSupplier) {
       toast({
         variant: "destructive",

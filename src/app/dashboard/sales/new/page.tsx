@@ -229,6 +229,12 @@ export default function NewSalePage() {
   };
 
   const handleSubmit = async () => {
+    // Prevent double submission
+    if (loading) {
+      console.warn("[SALES] Duplicate submission prevented");
+      return;
+    }
+
     if (cart.length === 0) {
       toast({
         variant: "destructive",
