@@ -110,6 +110,13 @@ export default function DashboardPage() {
         if (res.ok) {
           const stats = await res.json();
           console.log("Dashboard stats received:", stats);
+          console.log("Stats type:", typeof stats);
+          console.log("Stats keys:", Object.keys(stats || {}));
+          console.log("todayAppointments:", stats?.todayAppointments);
+          console.log(
+            "todayAppointments isArray:",
+            Array.isArray(stats?.todayAppointments),
+          );
 
           // Validate data structure
           if (stats && typeof stats === "object") {
@@ -135,6 +142,7 @@ export default function DashboardPage() {
                 ? stats.lowStockItems
                 : [],
             };
+            console.log("Validated stats:", validatedStats);
             setData(validatedStats);
           } else {
             console.error("Invalid stats format:", stats);
