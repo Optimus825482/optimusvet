@@ -1,6 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function usePWA() {
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
   useEffect(() => {
     // Register service worker
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -13,25 +18,38 @@ export function usePWA() {
           console.error("[PWA] Service Worker registration failed:", error);
         });
     }
+
+    // Check if already installed
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsInstalled(true);
+    }
   }, []);
 
   // Install prompt handler
   useEffect(() => {
-    let deferredPrompt: BeforeInstallPromptEvent | null = null;
-
-    window.addEventListener("beforeinstallprompt", (e: Event) => {
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      deferredPrompt = e as BeforeInstallPromptEvent;
-    });
+      const promptEvent = e as BeforeInstallPromptEvent;
+      setDeferredPrompt(promptEvent);
+      setIsInstallable(true);
+    };
 
-    window.addEventListener("appinstalled", () => {
+    const handleAppInstalled = () => {
       console.log("[PWA] App installed");
-      deferredPrompt = null;
-    });
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+      setIsInstalled(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", () => {});
-      window.removeEventListener("appinstalled", () => {});
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
 
@@ -42,9 +60,11 @@ export function usePWA() {
       // Trigger background sync
       if ("serviceWorker" in navigator && "SyncManager" in window) {
         navigator.serviceWorker.ready.then((registration) => {
-          (registration as any).sync.register("sync-transactions").catch((error: any) => {
-            console.error("[PWA] Sync registration failed:", error);
-          });
+          (registration as any).sync
+            .register("sync-transactions")
+            .catch((error: any) => {
+              console.error("[PWA] Sync registration failed:", error);
+            });
         });
       }
     };
@@ -61,6 +81,36 @@ export function usePWA() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+  const installPWA = async () => {
+    if (!deferredPrompt) {
+      return false;
+    }
+
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+
+      if (outcome === "accepted") {
+        console.log("[PWA] User accepted the install prompt");
+        setDeferredPrompt(null);
+        setIsInstallable(false);
+        return true;
+      } else {
+        console.log("[PWA] User dismissed the install prompt");
+        return false;
+      }
+    } catch (error) {
+      console.error("[PWA] Install prompt error:", error);
+      return false;
+    }
+  };
+
+  return {
+    isInstallable,
+    isInstalled,
+    installPWA,
+  };
 }
 
 // Disable type checking for this file

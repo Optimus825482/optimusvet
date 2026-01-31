@@ -30,6 +30,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
@@ -82,6 +88,9 @@ export default function NewSalePage() {
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paidAmount, setPaidAmount] = useState<string>("");
   const [notes, setNotes] = useState("");
+
+  // Müşteri seçim modal'ı için state
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
 
   // Fetch customers
   const { data: customersData } = useQuery<{ customers: Customer[] }>({
@@ -376,41 +385,15 @@ export default function NewSalePage() {
                   )}
                 </div>
               ) : (
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Müşteri ara (ad, telefon)..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                  {customerSearch && customersData?.customers && (
-                    <div className="absolute z-10 w-full mt-1 bg-background border rounded-xl shadow-lg max-h-60 overflow-auto">
-                      {customersData.customers.length === 0 ? (
-                        <div className="p-4 text-center text-muted-foreground">
-                          Müşteri bulunamadı
-                        </div>
-                      ) : (
-                        customersData.customers.map((customer) => (
-                          <button
-                            key={customer.id}
-                            type="button"
-                            className="w-full p-3 text-left border-b last:border-0"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setCustomerSearch("");
-                            }}
-                          >
-                            <div className="font-medium">{customer.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {customer.phone}
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowCustomerModal(true)}
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Müşteri Seç
+                </Button>
               )}
             </CardContent>
           </Card>
@@ -750,6 +733,92 @@ export default function NewSalePage() {
           © 2026 Optimus Vet. Tüm hakları saklıdır.
         </p>
       </div>
+
+      {/* Müşteri Seçim Modal'ı */}
+      <Dialog open={showCustomerModal} onOpenChange={setShowCustomerModal}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-primary" />
+              Müşteri Seç
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Müşteri ara (ad, telefon)..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="pl-10"
+                autoFocus
+              />
+            </div>
+
+            {customerSearch && customersData?.customers && (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {customersData.customers.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <User className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                    <p>Müşteri bulunamadı</p>
+                  </div>
+                ) : (
+                  customersData.customers.map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      className="w-full p-4 text-left border rounded-xl hover:bg-muted transition-colors"
+                      onClick={() => {
+                        setSelectedCustomer(customer);
+                        setCustomerSearch("");
+                        setShowCustomerModal(false);
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold">{customer.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {customer.phone}
+                          </div>
+                        </div>
+                        <div className="text-right ml-4">
+                          <div
+                            className={`font-semibold ${
+                              customer.balance > 0
+                                ? "text-destructive"
+                                : customer.balance < 0
+                                  ? "text-emerald-600"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {formatCurrency(customer.balance)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {customer.balance > 0
+                              ? "Alacak"
+                              : customer.balance < 0
+                                ? "Borç"
+                                : "Bakiye Sıfır"}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {!customerSearch && (
+              <div className="p-8 text-center text-muted-foreground">
+                <Search className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">
+                  Müşteri aramak için yukarıdaki alana yazın
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

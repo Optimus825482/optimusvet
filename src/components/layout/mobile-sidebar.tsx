@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { X, PawPrint } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ const navItems = [
   { title: "Satın Alma", href: "/dashboard/purchases", icon: Receipt },
   { title: "Hayvanlar", href: "/dashboard/animals", icon: PawPrint },
   { title: "Protokoller", href: "/dashboard/protocols", icon: Syringe },
-  { title: "Takvim", href: "/dashboard/calendar", icon: Calendar },
+  { title: "Ajanda", href: "/dashboard/calendar", icon: Calendar },
   { title: "Ayarlar", href: "/dashboard/settings", icon: Settings },
 ];
 
@@ -39,6 +39,10 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Check if we came from receivables page
+  const fromReceivables = searchParams.get("from") === "receivables";
 
   return (
     <>
@@ -78,7 +82,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               {navItems.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  pathname.startsWith(item.href + "/");
+                  pathname.startsWith(item.href + "/") ||
+                  (item.href === "/dashboard/receivables" &&
+                    fromReceivables &&
+                    pathname.match(/^\/dashboard\/customers\/[^/]+$/));
                 return (
                   <li key={item.href}>
                     <Link

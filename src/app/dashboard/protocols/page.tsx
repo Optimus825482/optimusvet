@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   Plus,
@@ -13,6 +13,8 @@ import {
   Calendar,
   ChevronRight,
   Settings,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +22,17 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ProtocolTemplate {
   id: string;
@@ -37,6 +50,8 @@ interface ProtocolTemplate {
 
 export default function ProtocolsPage() {
   const [search, setSearch] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: protocols, isLoading } = useQuery<ProtocolTemplate[]>({
     queryKey: ["protocols"],
@@ -44,6 +59,36 @@ export default function ProtocolsPage() {
       const res = await fetch("/api/protocols");
       if (!res.ok) throw new Error("Protokoller yüklenemedi");
       return res.json();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/protocol-templates/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Silinemedi");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["protocols"] });
+      toast({
+        variant: "success",
+        title: "Başarılı",
+        description: "Protokol şablonu silindi",
+      });
+      setDeleteId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: error.message,
+      });
+      setDeleteId(null);
     },
   });
 
@@ -147,10 +192,23 @@ export default function ProtocolsPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link href={`/dashboard/protocols/${p.id}`}>
-                          <Settings className="w-5 h-5" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        asChild
+                        className="hover:bg-primary/10"
+                      >
+                        <Link href={`/dashboard/protocols/${p.id}/edit`}>
+                          <Edit className="w-5 h-5" />
                         </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteId(p.id)}
+                      >
+                        <Trash2 className="w-5 h-5" />
                       </Button>
                       <ChevronRight className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
@@ -169,6 +227,27 @@ export default function ProtocolsPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Protokol Şablonunu Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu protokol şablonunu silmek istediğinize emin misiniz? Bu işlem
+              geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Siliniyor..." : "Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

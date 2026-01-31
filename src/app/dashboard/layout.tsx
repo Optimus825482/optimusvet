@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Header } from "@/components/layout/header";
@@ -11,15 +13,24 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  // Only redirect if we're sure user is not authenticated
+  // Don't redirect while loading to avoid race condition
+  if (status === "unauthenticated") {
+    router.push("/auth/login");
+    return null;
+  }
 
-  if (!mounted) {
+  // Show nothing while loading to avoid hydration issues
+  if (status === "loading") {
+    return null;
+  }
+
+  // At this point, we have a session
+  if (!session) {
     return null;
   }
 

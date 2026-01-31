@@ -57,6 +57,9 @@ export const productSchema = z.object({
   name: z.string().min(2, "Ürün adı en az 2 karakter olmalıdır"),
   barcode: z.string().optional(),
   categoryId: z.string().optional(),
+  productCategory: z
+    .enum(["MEDICINE", "SERVICE", "MEDICAL_SUPPLY", "PREMIX", "FEED"])
+    .default("MEDICINE"),
   unit: z.string().default("Adet"),
   purchasePrice: z.coerce.number().min(0, "Fiyat 0'dan küçük olamaz"),
   salePrice: z.coerce.number().min(0, "Fiyat 0'dan küçük olamaz"),
@@ -64,8 +67,21 @@ export const productSchema = z.object({
   criticalLevel: z.coerce.number().min(0).default(0),
   expiryDate: z.date().optional().nullable(),
   lotNumber: z.string().optional(),
+  image: z.string().url().optional().nullable(),
   description: z.string().optional(),
   isService: z.boolean().default(false),
+});
+
+export const priceUpdateSchema = z.object({
+  newPrice: z.coerce.number().min(0.01, "Fiyat 0'dan büyük olmalı"),
+  reason: z.string().min(1, "Sebep belirtilmeli"),
+});
+
+export const bulkPriceUpdateSchema = z.object({
+  productIds: z.array(z.string()).min(1, "En az 1 ürün seçilmeli"),
+  updateType: z.enum(["PERCENTAGE", "FIXED", "SET_PRICE"]),
+  value: z.coerce.number(),
+  reason: z.string().min(1, "Sebep belirtilmeli"),
 });
 
 // Animal Schemas
@@ -81,6 +97,9 @@ export const animalSchema = z.object({
     "HORSE",
     "BIRD",
     "RABBIT",
+    "FISH",
+    "REPTILE",
+    "RODENT",
     "OTHER",
   ]),
   breed: z.string().optional(),
@@ -202,6 +221,8 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type CustomerInput = z.infer<typeof customerSchema>;
 export type SupplierInput = z.infer<typeof supplierSchema>;
 export type ProductInput = z.infer<typeof productSchema>;
+export type PriceUpdateInput = z.infer<typeof priceUpdateSchema>;
+export type BulkPriceUpdateInput = z.infer<typeof bulkPriceUpdateSchema>;
 export type AnimalInput = z.infer<typeof animalSchema>;
 export type TransactionInput = z.infer<typeof transactionSchema>;
 export type TransactionItemInput = z.infer<typeof transactionItemSchema>;

@@ -92,18 +92,22 @@ const statusConfig: Record<
 export default function PurchasesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
 
   const { data, isLoading, error } = useQuery<{
     transactions: Purchase[];
     pagination: { total: number };
   }>({
-    queryKey: ["purchases", search, statusFilter],
+    queryKey: ["purchases", search, statusFilter, dateFrom, dateTo],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("type", "PURCHASE");
       if (search) params.set("search", search);
       if (statusFilter && statusFilter !== "all")
         params.set("status", statusFilter);
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
       params.set("limit", "50");
 
       const res = await fetch(`/api/transactions?${params}`);
@@ -129,6 +133,69 @@ export default function PurchasesPage() {
     return data.transactions
       .filter((s) => s.status === "PENDING" || s.status === "PARTIAL")
       .reduce((sum, s) => sum + Number(getRemainingAmount(s) || 0), 0);
+  };
+
+  // Hızlı tarih seçicileri
+  const handleQuickDateSelect = (option: string) => {
+    const today = new Date();
+    const formatDate = (date: Date) => date.toISOString().split("T")[0];
+
+    switch (option) {
+      case "today":
+        setDateFrom(formatDate(today));
+        setDateTo(formatDate(today));
+        break;
+      case "yesterday":
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        setDateFrom(formatDate(yesterday));
+        setDateTo(formatDate(yesterday));
+        break;
+      case "thisWeek":
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay() + 1); // Pazartesi
+        setDateFrom(formatDate(weekStart));
+        setDateTo(formatDate(today));
+        break;
+      case "lastWeek":
+        const lastWeekEnd = new Date(today);
+        lastWeekEnd.setDate(today.getDate() - today.getDay());
+        const lastWeekStart = new Date(lastWeekEnd);
+        lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+        setDateFrom(formatDate(lastWeekStart));
+        setDateTo(formatDate(lastWeekEnd));
+        break;
+      case "thisMonth":
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        setDateFrom(formatDate(monthStart));
+        setDateTo(formatDate(today));
+        break;
+      case "lastMonth":
+        const lastMonthStart = new Date(
+          today.getFullYear(),
+          today.getMonth() - 1,
+          1,
+        );
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        setDateFrom(formatDate(lastMonthStart));
+        setDateTo(formatDate(lastMonthEnd));
+        break;
+      case "thisYear":
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        setDateFrom(formatDate(yearStart));
+        setDateTo(formatDate(today));
+        break;
+      case "lastYear":
+        const lastYearStart = new Date(today.getFullYear() - 1, 0, 1);
+        const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31);
+        setDateFrom(formatDate(lastYearStart));
+        setDateTo(formatDate(lastYearEnd));
+        break;
+      case "clear":
+        setDateFrom("");
+        setDateTo("");
+        break;
+    }
   };
 
   return (
@@ -163,6 +230,58 @@ export default function PurchasesPage() {
             className="pl-10"
           />
         </div>
+
+        {/* Hızlı Tarih Seçici */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full sm:w-auto">
+              <Calendar className="w-4 h-4 mr-2" />
+              {dateFrom && dateTo
+                ? `${new Date(dateFrom).toLocaleDateString("tr-TR")} - ${new Date(dateTo).toLocaleDateString("tr-TR")}`
+                : "Tarih Seç"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem onClick={() => handleQuickDateSelect("today")}>
+              📅 Bugün
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleQuickDateSelect("yesterday")}
+            >
+              📆 Dün
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleQuickDateSelect("thisWeek")}>
+              📊 Bu Hafta
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleQuickDateSelect("lastWeek")}>
+              📉 Geçen Hafta
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => handleQuickDateSelect("thisMonth")}
+            >
+              📈 Bu Ay
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleQuickDateSelect("lastMonth")}
+            >
+              📊 Geçen Ay
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleQuickDateSelect("thisYear")}>
+              🎯 Bu Yıl
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleQuickDateSelect("lastYear")}>
+              📅 Geçen Yıl
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleQuickDateSelect("clear")}>
+              ❌ Temizle
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Durum" />

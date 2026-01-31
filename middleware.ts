@@ -51,19 +51,7 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // Public routes - allow without auth check
-  const isPublicRoute =
-    nextUrl.pathname === "/" ||
-    nextUrl.pathname.startsWith("/auth") ||
-    nextUrl.pathname.startsWith("/api/auth") ||
-    nextUrl.pathname.startsWith("/api/health");
-
-  if (isPublicRoute) {
-    return NextResponse.next();
-  }
-
-  // For protected routes, auth will be checked in the route handlers
-  // This avoids edge runtime issues with NextAuth
+  // Let all requests through - auth will be checked in API routes and pages
   return NextResponse.next();
 }
 

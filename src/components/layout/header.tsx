@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { GlobalSearch } from "@/components/layout/global-search";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -37,6 +38,19 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [time, setTime] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(0);
   const [clinicName, setClinicName] = useState("OPTIMUS VET");
+
+  // Ctrl+K to open search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Load clinic name from settings
   useEffect(() => {
@@ -112,12 +126,18 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* Search - Desktop */}
           <div className="hidden md:flex relative w-64 lg:w-80">
-            <Input
-              type="search"
-              placeholder="Ara... (Ctrl+K)"
-              className="pl-10 bg-muted/50 border-input focus:border-ring focus:ring-ring"
-              icon={<Search className="w-4 h-4 text-muted-foreground" />}
-            />
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="w-full text-left"
+            >
+              <Input
+                type="text"
+                placeholder="Ara... (Ctrl+K)"
+                className="pl-10 bg-muted/50 border-input focus:border-ring focus:ring-ring cursor-pointer"
+                icon={<Search className="w-4 h-4 text-muted-foreground" />}
+                readOnly
+              />
+            </button>
           </div>
         </div>
 
@@ -292,6 +312,9 @@ export function Header({ onMenuClick }: HeaderProps) {
           />
         </div>
       )}
+
+      {/* Global Search Modal */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   );
 }

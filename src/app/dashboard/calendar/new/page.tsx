@@ -115,9 +115,9 @@ export default function NewAppointmentPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Yeni Randevu / Etkinlik</h1>
+          <h1 className="text-2xl font-bold">Yeni Hatırlatıcı / Etkinlik</h1>
           <p className="text-muted-foreground">
-            Takvime yeni bir hatırlatıcı veya randevu ekleyin
+            Takvime yeni bir hatırlatıcı veya etkinlik ekleyin
           </p>
         </div>
       </div>

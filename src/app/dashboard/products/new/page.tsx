@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Package, Save } from "lucide-react";
+import { ArrowLeft, Package, Save, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProductImage } from "@/components/products/product-image";
 import { productSchema, type ProductInput } from "@/lib/validations";
 import { toast } from "@/hooks/use-toast";
 
@@ -26,6 +27,8 @@ const units = ["Adet", "Kutu", "Şişe", "Ampul", "Litre", "Kg", "Gram", "Paket"
 export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const {
     register,
@@ -42,10 +45,70 @@ export default function NewProductPage() {
       vatRate: 0,
       criticalLevel: 0,
       isService: false,
+      productCategory: "MEDICINE",
     },
   });
 
   const isService = watch("isService");
+  const productCategory = watch("productCategory");
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "Dosya boyutu 5MB'dan büyük olamaz",
+      });
+      return;
+    }
+
+    // Validate file type
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "Sadece JPG, PNG ve WebP formatları desteklenir",
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json();
+      setValue("image", data.url);
+      setImagePreview(data.url);
+
+      toast({
+        variant: "success",
+        title: "Başarılı",
+        description: "Resim yüklendi",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "Resim yüklenirken hata oluştu",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const onSubmit = async (data: ProductInput) => {
     setLoading(true);
@@ -121,6 +184,66 @@ export default function NewProductPage() {
               <Label htmlFor="isService" className="cursor-pointer">
                 Bu bir hizmettir (stok takibi yapılmaz)
               </Label>
+            </div>
+
+            {/* Kategori Seçimi */}
+            <div className="space-y-2">
+              <Label htmlFor="productCategory" required>
+                Kategori
+              </Label>
+              <Select
+                defaultValue="MEDICINE"
+                onValueChange={(value) => {
+                  setValue("productCategory", value as any);
+                  // Hizmet kategorisinde stok takibi otomatik disabled
+                  if (value === "SERVICE") {
+                    setValue("isService", true);
+                  } else {
+                    setValue("isService", false);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Kategori seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MEDICINE">İlaç</SelectItem>
+                  <SelectItem value="SERVICE">Hizmet</SelectItem>
+                  <SelectItem value="MEDICAL_SUPPLY">
+                    Medikal Malzeme
+                  </SelectItem>
+                  <SelectItem value="PREMIX">Premix</SelectItem>
+                  <SelectItem value="FEED">Yem</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Resim Yükleme */}
+            <div className="space-y-2">
+              <Label htmlFor="image">Ürün Resmi</Label>
+              <div className="flex flex-col gap-3">
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageUpload}
+                  disabled={uploading}
+                  className="cursor-pointer"
+                />
+                {uploading && (
+                  <p className="text-sm text-muted-foreground">Yükleniyor...</p>
+                )}
+                {imagePreview && (
+                  <div className="flex justify-center">
+                    <ProductImage
+                      src={imagePreview}
+                      alt="Önizleme"
+                      category={productCategory}
+                      size="lg"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Name */}
@@ -225,8 +348,12 @@ export default function NewProductPage() {
                     type="number"
                     min="0"
                     placeholder="0"
+                    disabled={productCategory === "SERVICE"}
                     {...register("criticalLevel")}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Stok bu seviyenin altına düştüğünde uyarı alırsınız
+                  </p>
                 </div>
               )}
             </div>

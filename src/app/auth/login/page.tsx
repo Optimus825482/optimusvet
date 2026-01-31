@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -32,34 +33,18 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Prevent default form submission
-    e.stopPropagation();
-    
+  const onSubmit = async (data: LoginInput) => {
     setLoading(true);
-    
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
 
     try {
-      // Validate
-      const validatedData = loginSchema.parse({ email, password });
-
-      // POST request ile güvenli login - URL'de görünmez
-      const response = await fetch("/api/auth/callback/credentials", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          email: validatedData.email,
-          password: validatedData.password,
-          callbackUrl: "/dashboard",
-        }),
+      // Use NextAuth signIn function - handles CSRF automatically
+      const result = await signIn("credentials", {
+        email: data.email,
+        password: data.password,
+        redirect: false, // Don't redirect automatically
       });
 
-      if (!response.ok) {
+      if (result?.error) {
         toast({
           variant: "destructive",
           title: "Giriş başarısız",
@@ -68,13 +53,16 @@ export default function LoginPage() {
         return;
       }
 
-      toast({
-        title: "Hoş geldiniz!",
-        description: "Giriş başarılı, yönlendiriliyorsunuz...",
-      });
-      
-      // Session'ı yenile ve dashboard'a yönlendir
-      window.location.href = "/dashboard";
+      if (result?.ok) {
+        toast({
+          title: "Hoş geldiniz!",
+          description: "Giriş başarılı, yönlendiriliyorsunuz...",
+        });
+
+        // Redirect to dashboard
+        router.push("/dashboard");
+        router.refresh(); // Refresh to update session
+      }
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -110,7 +98,7 @@ export default function LoginPage() {
           </div>
         </CardHeader>
 
-        <form onSubmit={onSubmit} method="POST">
+        <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" required>
@@ -118,12 +106,12 @@ export default function LoginPage() {
               </Label>
               <Input
                 id="email"
-                name="email"
                 type="email"
                 placeholder="ornek@email.com"
                 autoComplete="email"
                 icon={<Mail className="w-4 h-4" />}
-                required
+                {...register("email")}
+                error={errors.email?.message}
               />
             </div>
 
@@ -133,12 +121,12 @@ export default function LoginPage() {
               </Label>
               <Input
                 id="password"
-                name="password"
                 type="password"
                 placeholder="••••••••"
                 autoComplete="current-password"
                 icon={<Lock className="w-4 h-4" />}
-                required
+                {...register("password")}
+                error={errors.password?.message}
               />
             </div>
 
@@ -166,8 +154,7 @@ export default function LoginPage() {
             >
               Giriş Yap
             </Button>
-
-            </CardFooter>
+          </CardFooter>
         </form>
 
         <div className="pb-4 text-center">

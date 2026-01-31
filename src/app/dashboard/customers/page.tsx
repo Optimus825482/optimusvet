@@ -40,6 +40,7 @@ interface Customer {
   email: string | null;
   address: string | null;
   city: string | null;
+  image: string | null;
   balance: number;
   createdAt: string;
   _count: {
@@ -86,18 +87,18 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Page Header */}
+      {/* Page Header - Mobile Optimized */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
             Müşteriler
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Müşteri ve hasta sahiplerini yönetin
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/dashboard/customers/new">
             <Plus className="w-4 h-4 mr-2" />
             Yeni Müşteri
@@ -121,28 +122,38 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats - Mobile Optimized */}
       {data && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Toplam Müşteri</div>
-            <div className="text-2xl font-bold">{data.pagination.total}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <Card className="p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">
+              Toplam Müşteri
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">
+              {data.pagination.total}
+            </div>
           </Card>
-          <Card className="p-4">
-            <div className="text-sm text-muted-foreground">
+          <Card className="p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               Alacaklı Müşteri
             </div>
-            <div className="text-2xl font-bold text-destructive">
+            <div className="text-xl sm:text-2xl font-bold text-destructive">
               {data.customers.filter((c) => c.balance > 0).length}
             </div>
           </Card>
-          <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Bu Sayfada</div>
-            <div className="text-2xl font-bold">{data.customers.length}</div>
+          <Card className="p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">
+              Bu Sayfada
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">
+              {data.customers.length}
+            </div>
           </Card>
-          <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Sayfa</div>
-            <div className="text-2xl font-bold">
+          <Card className="p-3 sm:p-4">
+            <div className="text-xs sm:text-sm text-muted-foreground">
+              Sayfa
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">
               {data.pagination.page} / {data.pagination.totalPages}
             </div>
           </Card>
@@ -191,34 +202,53 @@ export default function CustomersPage() {
               <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-4">
-                    {/* Customer Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold truncate">
-                          {customer.name}
-                        </h3>
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                          {customer.code}
-                        </Badge>
-                      </div>
+                    {/* Avatar + Customer Info */}
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {/* Avatar - Responsive size */}
+                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 border-2 border-slate-100">
+                        {customer.image ? (
+                          <AvatarImage
+                            src={customer.image}
+                            alt={customer.name}
+                          />
+                        ) : null}
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs sm:text-sm">
+                          {getInitials(customer.name)}
+                        </AvatarFallback>
+                      </Avatar>
 
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>{customer.phone}</span>
+                      {/* Customer Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold truncate">
+                            {customer.name}
+                          </h3>
+                          <Badge
+                            variant="secondary"
+                            className="text-xs shrink-0"
+                          >
+                            {customer.code}
+                          </Badge>
                         </div>
-                        {customer.email && (
+
+                        <div className="space-y-1 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
-                            <Mail className="w-3.5 h-3.5" />
-                            <span className="truncate">{customer.email}</span>
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>{customer.phone}</span>
                           </div>
-                        )}
-                        {customer.city && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-3.5 h-3.5" />
-                            <span>{customer.city}</span>
-                          </div>
-                        )}
+                          {customer.email && (
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-3.5 h-3.5" />
+                              <span className="truncate">{customer.email}</span>
+                            </div>
+                          )}
+                          {customer.city && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span>{customer.city}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -328,19 +358,20 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* Pagination */}
+      {/* Pagination - Mobile Optimized */}
       {data && data.pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between border-t pt-4">
-          <div className="text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t pt-4">
+          <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
             Toplam {data.pagination.total} müşteriden {(page - 1) * limit + 1}-
             {Math.min(page * limit, data.pagination.total)} arası gösteriliyor
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
+              className="h-9"
             >
               Önceki
             </Button>
@@ -360,13 +391,15 @@ export default function CustomersPage() {
                 .map((p, idx, arr) => (
                   <div key={p} className="flex items-center">
                     {idx > 0 && arr[idx - 1] !== p - 1 && (
-                      <span className="px-2 text-muted-foreground">...</span>
+                      <span className="px-1 sm:px-2 text-muted-foreground text-sm">
+                        ...
+                      </span>
                     )}
                     <Button
                       variant={p === page ? "default" : "outline"}
                       size="sm"
                       onClick={() => setPage(p)}
-                      className="min-w-[40px]"
+                      className="min-w-[36px] sm:min-w-[40px] h-9"
                     >
                       {p}
                     </Button>
@@ -380,6 +413,7 @@ export default function CustomersPage() {
                 setPage((p) => Math.min(data.pagination.totalPages, p + 1))
               }
               disabled={page === data.pagination.totalPages}
+              className="h-9"
             >
               Sonraki
             </Button>

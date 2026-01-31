@@ -48,6 +48,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AssignProtocolModal } from "@/components/protocols/assign-protocol-modal";
 
 const speciesIcons: Record<string, string> = {
   DOG: "🐕",
@@ -181,6 +182,7 @@ export default function AnimalDetailPage() {
   const animalId = params.id as string;
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assignProtocolOpen, setAssignProtocolOpen] = useState(false);
 
   // Fetch animal details
   const { data: animal, isLoading } = useQuery({
@@ -313,13 +315,11 @@ export default function AnimalDetailPage() {
               className="rounded-2xl p-2 shadow-xl border-slate-100"
             >
               <DropdownMenuItem
-                asChild
                 className="rounded-lg py-2 cursor-pointer"
+                onClick={() => setAssignProtocolOpen(true)}
               >
-                <Link href={`/dashboard/protocols/new?animalId=${animalId}`}>
-                  <Syringe className="h-4 w-4 mr-2 text-primary" />
-                  Protokol Ekle
-                </Link>
+                <Syringe className="h-4 w-4 mr-2 text-primary" />
+                Protokol Ata
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -477,9 +477,9 @@ export default function AnimalDetailPage() {
               asChild
               className="w-full rounded-2xl h-12 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20 mt-6"
             >
-              <Link href={`/dashboard/protocols/new?animalId=${animalId}`}>
+              <button onClick={() => setAssignProtocolOpen(true)}>
                 YENİ PROTOKOL BAŞLAT
-              </Link>
+              </button>
             </Button>
           </CardContent>
         </Card>
@@ -622,10 +622,10 @@ export default function AnimalDetailPage() {
                   asChild
                   className="mt-6 rounded-xl border-slate-200 bg-white"
                 >
-                  <Link href={`/dashboard/protocols/new?animalId=${animalId}`}>
+                  <button onClick={() => setAssignProtocolOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     İlk Protokolü Başlat
-                  </Link>
+                  </button>
                 </Button>
               </div>
             )}
@@ -705,6 +705,14 @@ export default function AnimalDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Protocol Modal */}
+      <AssignProtocolModal
+        open={assignProtocolOpen}
+        onOpenChange={setAssignProtocolOpen}
+        animalId={animalId}
+        animalSpecies={animal.species}
+      />
     </div>
   );
 }

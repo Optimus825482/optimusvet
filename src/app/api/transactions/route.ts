@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const supplierId = searchParams.get("supplierId");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const dateField = searchParams.get("dateField") || "createdAt"; // date veya createdAt
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
@@ -34,12 +35,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (startDate || endDate) {
-      where.createdAt = {};
+      // dateField parametresine göre filtreleme (date veya createdAt)
+      where[dateField] = {};
       if (startDate) {
-        where.createdAt.gte = new Date(startDate);
+        where[dateField].gte = new Date(startDate);
       }
       if (endDate) {
-        where.createdAt.lte = new Date(endDate);
+        where[dateField].lte = new Date(endDate);
       }
     }
 
@@ -134,9 +136,9 @@ export async function POST(request: NextRequest) {
     const code = `${prefix}-${String(lastNumber + 1).padStart(6, "0")}`;
 
     // Calculate totals
-    let subTotal = 0;
-    let vatTotal = 0;
-    const items = body.items.map((item: any) => {
+    let subTotal = body.subtotal || 0;
+    let vatTotal = body.vatTotal || 0;
+    const items = (body.items || []).map((item: any) => {
       const lineTotal = item.quantity * item.unitPrice;
       const lineDiscount = item.discount || 0;
       const lineVat = ((lineTotal - lineDiscount) * item.vatRate) / 100;
@@ -146,18 +148,17 @@ export async function POST(request: NextRequest) {
       vatTotal += lineVat;
 
       return {
-        productId: item.productId || null,
-        description: item.description || null,
+        productId: item.productId, // productId zorunlu
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        vatRate: item.vatRate,
+        vatRate: item.vatRate || 0,
         discount: lineDiscount,
         total,
       };
     });
 
     const discount = body.discount || 0;
-    const total = subTotal + vatTotal - discount;
+    const total = body.total || subTotal + vatTotal - discount;
 
     // Determine payment status
     const paidAmount = body.paidAmount || 0;
@@ -176,6 +177,7 @@ export async function POST(request: NextRequest) {
         customerId: body.customerId || null,
         supplierId: body.supplierId || null,
         animalId: body.animalId || null,
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
         subtotal: subTotal,
         discount,
         vatTotal,
@@ -185,9 +187,11 @@ export async function POST(request: NextRequest) {
         status,
         notes: body.notes || null,
         userId: session.user.id,
-        items: {
-          create: items,
-        },
+        ...(items.length > 0 && {
+          items: {
+            create: items,
+          },
+        }),
       },
       include: {
         items: {
@@ -266,6 +270,43 @@ export async function POST(request: NextRequest) {
           balance: {
             decrement: total,
           },
+        },
+      });
+    }
+
+    // Otomatik hatırlatma oluştur (vade tarihi varsa ve ödeme tam değilse)
+    if (body.dueDate && status !== "PAID") {
+      const remaining = total - paidAmount;
+      const reminderType =
+        type === "SALE" || type === "TREATMENT"
+          ? "PAYMENT_DUE"
+          : "COLLECTION_DUE";
+
+      const entityName = body.customerId
+        ? (
+            await prisma.customer.findUnique({
+              where: { id: body.customerId },
+              select: { name: true },
+            })
+          )?.name
+        : body.supplierId
+          ? (
+              await prisma.supplier.findUnique({
+                where: { id: body.supplierId },
+                select: { name: true },
+              })
+            )?.name
+          : "Perakende";
+
+      await prisma.reminder.create({
+        data: {
+          type: reminderType,
+          title: `${code} - Vade Tarihi`,
+          description: `${entityName} - ${remaining.toFixed(2)} TL ${status === "PARTIAL" ? "(Kısmi Ödeme)" : ""}`,
+          dueDate: new Date(body.dueDate),
+          userId: session.user.id,
+          customerId: body.customerId || null,
+          supplierId: body.supplierId || null,
         },
       });
     }

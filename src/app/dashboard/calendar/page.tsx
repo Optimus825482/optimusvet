@@ -60,7 +60,10 @@ interface Transaction {
   id: string;
   code: string;
   type: "SALE" | "PURCHASE" | "TREATMENT";
-  grandTotal: number;
+  date: string;
+  total: number;
+  paidAmount: number;
+  status: "PENDING" | "PARTIAL" | "PAID";
   createdAt: string;
   customer?: { name: string };
   supplier?: { name: string };
@@ -126,9 +129,12 @@ export default function CalendarPage() {
   }>({
     queryKey: ["calendar-tx", range.start, range.end],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/transactions?startDate=${range.start.toISOString()}&endDate=${range.end.toISOString()}&limit=1000`,
-      );
+      const params = new URLSearchParams();
+      params.set("startDate", range.start.toISOString());
+      params.set("endDate", range.end.toISOString());
+      params.set("limit", "1000");
+      params.set("dateField", "date"); // İşlem tarihine göre filtrele
+      const res = await fetch(`/api/transactions?${params}`);
       if (!res.ok) throw new Error("İşlemler yüklenemedi");
       return res.json();
     },
@@ -154,7 +160,7 @@ export default function CalendarPage() {
     const dateStr = format(date, "yyyy-MM-dd");
     const txs =
       transactions?.transactions.filter(
-        (t) => format(new Date(t.createdAt), "yyyy-MM-dd") === dateStr,
+        (t) => format(new Date(t.date), "yyyy-MM-dd") === dateStr,
       ) || [];
     const rems =
       reminders?.reminders.filter(
@@ -193,10 +199,10 @@ export default function CalendarPage() {
   const totalsForSelected = useMemo(() => {
     const sales = selectedDayData.txs
       .filter((t) => t.type === "SALE" || t.type === "TREATMENT")
-      .reduce((sum, t) => sum + Number(t.grandTotal), 0);
+      .reduce((sum, t) => sum + (Number(t.total) || 0), 0);
     const purchases = selectedDayData.txs
       .filter((t) => t.type === "PURCHASE")
-      .reduce((sum, t) => sum + Number(t.grandTotal), 0);
+      .reduce((sum, t) => sum + (Number(t.total) || 0), 0);
     return { sales, purchases };
   }, [selectedDayData]);
 
@@ -215,6 +221,96 @@ export default function CalendarPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Date Selectors */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <CalendarPlus className="w-4 h-4" />
+                Hızlı Seç
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={() => {
+                  const today = new Date();
+                  setCurrentDate(today);
+                  setSelectedDate(today);
+                  setViewMode("day");
+                }}
+              >
+                📅 Bugün
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setCurrentDate(yesterday);
+                  setSelectedDate(yesterday);
+                  setViewMode("day");
+                }}
+              >
+                ⏮️ Dün
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const today = new Date();
+                  setCurrentDate(today);
+                  setViewMode("week");
+                }}
+              >
+                📆 Bu Hafta
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const lastWeek = new Date();
+                  lastWeek.setDate(lastWeek.getDate() - 7);
+                  setCurrentDate(lastWeek);
+                  setViewMode("week");
+                }}
+              >
+                ⏪ Geçen Hafta
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const today = new Date();
+                  setCurrentDate(today);
+                  setViewMode("month");
+                }}
+              >
+                🗓️ Bu Ay
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const lastMonth = new Date();
+                  lastMonth.setMonth(lastMonth.getMonth() - 1);
+                  setCurrentDate(lastMonth);
+                  setViewMode("month");
+                }}
+              >
+                ◀️ Geçen Ay
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const today = new Date();
+                  setCurrentDate(today);
+                  setViewMode("year");
+                }}
+              >
+                📅 Bu Yıl
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const lastYear = new Date();
+                  lastYear.setFullYear(lastYear.getFullYear() - 1);
+                  setCurrentDate(lastYear);
+                  setViewMode("year");
+                }}
+              >
+                ⏪ Geçen Yıl
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Tabs
             value={viewMode}
             onValueChange={(v: any) => setViewMode(v)}
@@ -265,7 +361,7 @@ export default function CalendarPage() {
 
           <Button asChild className="hidden sm:flex">
             <Link href="/dashboard/calendar/new">
-              <Plus className="w-4 h-4 mr-2" /> Randevu Ekle
+              <Plus className="w-4 h-4 mr-2" /> Hatırlatıcı Ekle
             </Link>
           </Button>
         </div>
@@ -288,6 +384,8 @@ export default function CalendarPage() {
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 getEvents={getEventsForDate}
+                onPrevMonth={() => setCurrentDate(subMonths(currentDate, 1))}
+                onNextMonth={() => setCurrentDate(addMonths(currentDate, 1))}
               />
             )}
             {viewMode === "week" && (
@@ -296,10 +394,27 @@ export default function CalendarPage() {
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
                 getEvents={getEventsForDate}
+                onPrevWeek={() => setCurrentDate(subWeeks(currentDate, 1))}
+                onNextWeek={() => setCurrentDate(addWeeks(currentDate, 1))}
               />
             )}
             {viewMode === "day" && (
-              <DayView selectedDate={selectedDate} data={selectedDayData} />
+              <DayView
+                selectedDate={selectedDate}
+                data={selectedDayData}
+                onPrevDay={() => {
+                  const newDate = new Date(selectedDate);
+                  newDate.setDate(newDate.getDate() - 1);
+                  setSelectedDate(newDate);
+                  setCurrentDate(newDate);
+                }}
+                onNextDay={() => {
+                  const newDate = new Date(selectedDate);
+                  newDate.setDate(newDate.getDate() + 1);
+                  setSelectedDate(newDate);
+                  setCurrentDate(newDate);
+                }}
+              />
             )}
             {viewMode === "year" && (
               <YearView
@@ -405,48 +520,73 @@ export default function CalendarPage() {
                   ))}
 
                   {/* Sales/Purchases */}
-                  {selectedDayData.txs.map((tx) => (
-                    <Link
-                      href={`/dashboard/${tx.type === "PURCHASE" ? "purchases" : "sales"}/${tx.id}`}
-                      key={tx.id}
-                      className={cn(
-                        "flex gap-3 p-3 rounded-lg border transition-colors group",
-                        tx.type === "PURCHASE"
-                          ? "bg-rose-50/30 border-rose-100 hover:border-rose-300"
-                          : "bg-emerald-50/30 border-emerald-100 hover:border-emerald-300",
-                      )}
-                    >
-                      <div
+                  {selectedDayData.txs.map((tx) => {
+                    const isPaid = tx.status === "PAID";
+                    const isPartial = tx.status === "PARTIAL";
+                    const remaining =
+                      (Number(tx.total) || 0) - (Number(tx.paidAmount) || 0);
+
+                    return (
+                      <Link
+                        href={`/dashboard/${tx.type === "PURCHASE" ? "purchases" : "sales"}/${tx.id}`}
+                        key={tx.id}
                         className={cn(
-                          "p-2 rounded-lg group-hover:scale-110 transition-transform",
+                          "flex gap-3 p-3 rounded-lg border transition-colors group",
                           tx.type === "PURCHASE"
-                            ? "bg-rose-100 text-rose-600"
-                            : "bg-emerald-100 text-emerald-600",
+                            ? "bg-rose-50/30 border-rose-100 hover:border-rose-300"
+                            : "bg-emerald-50/30 border-emerald-100 hover:border-emerald-300",
                         )}
                       >
-                        {tx.type === "PURCHASE" ? (
-                          <ArrowDownLeft className="w-4 h-4" />
-                        ) : (
-                          <ShoppingCart className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <div className="font-semibold text-sm truncate">
-                            {tx.code}
+                        <div
+                          className={cn(
+                            "p-2 rounded-lg group-hover:scale-110 transition-transform",
+                            tx.type === "PURCHASE"
+                              ? "bg-rose-100 text-rose-600"
+                              : "bg-emerald-100 text-emerald-600",
+                          )}
+                        >
+                          {tx.type === "PURCHASE" ? (
+                            <ArrowDownLeft className="w-4 h-4" />
+                          ) : (
+                            <ShoppingCart className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-semibold text-sm truncate">
+                              {tx.code}
+                            </div>
+                            <div className="text-xs font-bold whitespace-nowrap">
+                              {formatCurrency(tx.total || 0)}
+                            </div>
                           </div>
-                          <div className="text-xs font-bold">
-                            {formatCurrency(tx.grandTotal)}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              {tx.customer?.name ||
+                                tx.supplier?.name ||
+                                "Perakende"}
+                            </div>
+                            {isPartial && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1 py-0 h-4 bg-amber-50 text-amber-700 border-amber-200"
+                              >
+                                Kısmi: {formatCurrency(remaining)}
+                              </Badge>
+                            )}
+                            {isPaid && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1 py-0 h-4 bg-emerald-50 text-emerald-700 border-emerald-200"
+                              >
+                                Ödendi
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {tx.customer?.name ||
-                            tx.supplier?.name ||
-                            "Perakende"}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
+                      </Link>
+                    );
+                  })}
 
                   {selectedDayData.txs.length === 0 &&
                     selectedDayData.rems.length === 0 && (
@@ -464,7 +604,7 @@ export default function CalendarPage() {
 
           <Button variant="outline" className="w-full border-dashed" asChild>
             <Link href="/dashboard/calendar/new">
-              <Plus className="w-4 h-4 mr-2" /> Yeni Randevu
+              <Plus className="w-4 h-4 mr-2" /> Yeni Hatırlatıcı
             </Link>
           </Button>
         </div>
@@ -525,7 +665,13 @@ export default function CalendarPage() {
                   {tx.type === "PURCHASE" ? "Alım" : "Satış"}
                 </td>
                 <td className="p-2 text-right font-bold">
-                  {formatCurrency(tx.grandTotal)}
+                  {formatCurrency(tx.total || 0)}
+                  {tx.status === "PARTIAL" && (
+                    <span className="text-xs text-amber-600 ml-2">
+                      (Kısmi:{" "}
+                      {formatCurrency((tx.total || 0) - (tx.paidAmount || 0))})
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -545,6 +691,8 @@ function MonthView({
   selectedDate,
   setSelectedDate,
   getEvents,
+  onPrevMonth,
+  onNextMonth,
 }: any) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -554,9 +702,29 @@ function MonthView({
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
   return (
-    <div className="bg-card">
+    <div className="bg-card relative">
+      {/* Navigation Arrows */}
+      <div className="absolute top-2 left-2 right-2 flex justify-between z-10">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onPrevMonth}
+          className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onNextMonth}
+          className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
       {/* Day Header */}
-      <div className="grid grid-cols-7 border-b">
+      <div className="grid grid-cols-7 border-b pt-12">
         {["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((d, i) => (
           <div
             key={d}
@@ -611,7 +779,7 @@ function MonthView({
                     <span className="text-[10px] font-medium text-emerald-600">
                       {formatCurrency(
                         txs.reduce(
-                          (s: any, t: any) => s + Number(t.grandTotal),
+                          (s: any, t: any) => s + (Number(t.total) || 0),
                           0,
                         ),
                       )}
@@ -646,76 +814,123 @@ function WeekView({
   selectedDate,
   setSelectedDate,
   getEvents,
+  onPrevWeek,
+  onNextWeek,
 }: any) {
   const startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
   const endDate = endOfWeek(currentDate, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: startDate, end: endDate });
 
   return (
-    <div className="grid grid-cols-7 min-h-[500px]">
-      {days.map((date, idx) => {
-        const { txs, rems } = getEvents(date);
-        const isSelected = isSameDay(date, selectedDate);
-        return (
-          <div
-            key={idx}
-            className={cn(
-              "border-r last:border-r-0 p-4 transition-colors cursor-pointer",
-              isSelected ? "bg-primary/5" : "hover:bg-muted/10",
-            )}
-            onClick={() => setSelectedDate(date)}
-          >
-            <div className="text-center mb-6">
-              <div className="text-xs text-muted-foreground uppercase font-bold mb-1">
-                {format(date, "EEE", { locale: tr })}
-              </div>
-              <div
-                className={cn(
-                  "text-2xl font-black rounded-full w-10 h-10 flex items-center justify-center mx-auto",
-                  isToday(date)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground",
-                )}
-              >
-                {format(date, "d")}
-              </div>
-            </div>
+    <div className="relative">
+      {/* Navigation Arrows */}
+      <div className="absolute top-2 left-2 right-2 flex justify-between z-10">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onPrevWeek}
+          className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onNextWeek}
+          className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
 
-            <div className="space-y-2">
-              {rems.map((r: any) => (
-                <div
-                  key={r.id}
-                  className="text-[10px] bg-blue-100/50 text-blue-700 p-1.5 rounded-md border border-blue-200"
-                >
-                  <div className="font-bold truncate">{r.title}</div>
+      <div className="grid grid-cols-7 min-h-[500px] pt-12">
+        {days.map((date, idx) => {
+          const { txs, rems } = getEvents(date);
+          const isSelected = isSameDay(date, selectedDate);
+          return (
+            <div
+              key={idx}
+              className={cn(
+                "border-r last:border-r-0 p-4 transition-colors cursor-pointer",
+                isSelected ? "bg-primary/5" : "hover:bg-muted/10",
+              )}
+              onClick={() => setSelectedDate(date)}
+            >
+              <div className="text-center mb-6">
+                <div className="text-xs text-muted-foreground uppercase font-bold mb-1">
+                  {format(date, "EEE", { locale: tr })}
                 </div>
-              ))}
-              {txs.map((t: any) => (
                 <div
-                  key={t.id}
                   className={cn(
-                    "text-[10px] p-1.5 rounded-md border",
-                    t.type === "PURCHASE"
-                      ? "bg-rose-100/50 text-rose-700 border-rose-200"
-                      : "bg-emerald-100/50 text-emerald-700 border-emerald-200",
+                    "text-2xl font-black rounded-full w-10 h-10 flex items-center justify-center mx-auto",
+                    isToday(date)
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground",
                   )}
                 >
-                  <div className="font-bold">
-                    {formatCurrency(t.grandTotal)}
-                  </div>
+                  {format(date, "d")}
                 </div>
-              ))}
+              </div>
+
+              <div className="space-y-2">
+                {rems.map((r: any) => (
+                  <div
+                    key={r.id}
+                    className="text-[10px] bg-blue-100/50 text-blue-700 p-1.5 rounded-md border border-blue-200"
+                  >
+                    <div className="font-bold truncate">{r.title}</div>
+                  </div>
+                ))}
+                {txs.map((t: any) => (
+                  <div
+                    key={t.id}
+                    className={cn(
+                      "text-[10px] p-1.5 rounded-md border",
+                      t.type === "PURCHASE"
+                        ? "bg-rose-100/50 text-rose-700 border-rose-200"
+                        : "bg-emerald-100/50 text-emerald-700 border-emerald-200",
+                    )}
+                  >
+                    <div className="font-bold">
+                      {formatCurrency(t.total || 0)}
+                    </div>
+                    {t.status === "PARTIAL" && (
+                      <div className="text-[8px] text-amber-600">Kısmi</div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function DayView({ selectedDate, data }: any) {
+function DayView({ selectedDate, data, onPrevDay, onNextDay }: any) {
   return (
-    <div className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center bg-card">
+    <div className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center bg-card relative">
+      {/* Navigation Arrows */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onPrevDay}
+          className="h-10 w-10"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onNextDay}
+          className="h-10 w-10"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </Button>
+      </div>
+
       <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
         <CalendarRange className="w-10 h-10 text-primary" />
       </div>

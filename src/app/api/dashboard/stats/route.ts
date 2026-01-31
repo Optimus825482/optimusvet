@@ -38,11 +38,11 @@ export async function GET() {
       },
     });
 
-    // 3. Pending Payments (Customer Balances)
+    // 3. Pending Payments (Customer Balances) - BİZİM ALACAKLARIMIZ (balance > 0)
     const customersWithDebt = await prisma.customer.aggregate({
       where: {
         balance: {
-          lt: 0,
+          gt: 0, // Pozitif bakiye = Biz müşteriden alacaklıyız
         },
       },
       _sum: {
@@ -113,15 +113,15 @@ export async function GET() {
       take: 5,
     });
 
-    // 9. Large Debts (Pending Payments List)
+    // 9. Large Debts (Pending Payments List) - BİZİM ALACAKLARIMIZ (balance > 0)
     const largeDebts = await prisma.customer.findMany({
       where: {
         balance: {
-          lt: 0,
+          gt: 0, // Pozitif bakiye = Biz müşteriden alacaklıyız
         },
       },
       orderBy: {
-        balance: "asc", // Most debt first
+        balance: "desc", // En yüksek alacak önce
       },
       take: 5,
     });
@@ -145,7 +145,7 @@ export async function GET() {
         todaySales: Number(todaySales._sum.total || 0),
         totalCustomers: totalCustomers,
         totalAnimals: totalAnimals,
-        pendingPayments: Math.abs(Number(customersWithDebt._sum.balance || 0)),
+        pendingPayments: Number(customersWithDebt._sum.balance || 0), // Zaten pozitif, abs'e gerek yok
         criticalStock: criticalStockCount,
       },
       todayAppointments: todayReminders.map((r) => ({
@@ -168,7 +168,7 @@ export async function GET() {
       pendingPaymentsList: largeDebts.map((c) => ({
         id: c.id,
         customer: c.name,
-        amount: Math.abs(Number(c.balance)),
+        amount: Number(c.balance), // Zaten pozitif, abs'e gerek yok
         dueDate: "Bakiye",
         overdue: true,
       })),

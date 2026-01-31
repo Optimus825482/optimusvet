@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -16,11 +16,16 @@ import {
   Calendar,
   Settings,
   ChevronRight,
-  Sparkles,
   Zap,
   BookOpen,
+  Download,
+  HelpCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { usePWA } from "@/hooks/use-pwa";
+import { PWAInstallHelpModal } from "@/components/pwa-install-help-modal";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   {
@@ -78,7 +83,7 @@ const navItems = [
     color: "text-cyan-500",
   },
   {
-    title: "Randevular",
+    title: "Ajanda",
     href: "/dashboard/calendar",
     icon: Calendar,
     color: "text-violet-500",
@@ -93,12 +98,32 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const { isInstallable, isInstalled, installPWA } = usePWA();
+  const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
+
+  // Check if we came from receivables page
+  const fromReceivables = searchParams.get("from") === "receivables";
+
+  const handleInstall = async () => {
+    const success = await installPWA();
+    if (success) {
+      toast({
+        title: "Başarılı!",
+        description: "Uygulama cihazınıza yükleniyor...",
+      });
+    } else {
+      // Eğer prompt çalışmazsa yardım modalını göster
+      setShowHelpModal(true);
+    }
+  };
 
   return (
     <aside
@@ -123,10 +148,14 @@ export function Sidebar() {
           <>
             <ul className="space-y-1">
               {navItems.map((item) => {
+                // Special handling for receivables when coming from receivables page
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/dashboard" &&
-                    pathname.startsWith(item.href + "/"));
+                    pathname.startsWith(item.href + "/")) ||
+                  (item.href === "/dashboard/receivables" &&
+                    fromReceivables &&
+                    pathname.match(/^\/dashboard\/customers\/[^/]+$/));
 
                 return (
                   <li key={item.href}>
@@ -172,28 +201,54 @@ export function Sidebar() {
               })}
             </ul>
 
-            <div className="mt-10 px-2">
-              <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden shadow-2xl group">
-                <div className="absolute -right-4 -top-4 w-20 h-20 bg-primary/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-                <div className="relative z-10">
-                  <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4">
-                    <Sparkles className="w-5 h-5 text-primary" />
+            {/* PWA Install Section */}
+            {!isInstalled && (
+              <div className="mt-10 px-2">
+                <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-teal-600 to-blue-600 text-white relative overflow-hidden shadow-2xl group">
+                  <div className="absolute -right-4 -top-4 w-20 h-20 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+                  <div className="relative z-10">
+                    <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4">
+                      <Download className="w-5 h-5 text-white" />
+                    </div>
+                    <p className="text-sm font-black mb-2 leading-tight">
+                      Uygulamayı Yükle
+                    </p>
+                    <p className="text-[10px] mb-4 opacity-80 leading-relaxed">
+                      Hızlı erişim için cihazınıza yükleyin
+                    </p>
+                    <div className="flex gap-2">
+                      {isInstallable ? (
+                        <Button
+                          onClick={handleInstall}
+                          size="sm"
+                          className="flex-1 bg-white text-teal-600 hover:bg-white/90 font-bold text-xs"
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          Yükle
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => setShowHelpModal(true)}
+                          size="sm"
+                          className="flex-1 bg-white text-teal-600 hover:bg-white/90 font-bold text-xs"
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          Nasıl Yüklenir?
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => setShowHelpModal(true)}
+                        size="sm"
+                        variant="ghost"
+                        className="w-10 h-10 p-0 hover:bg-white/10"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-50">
-                    Sürüm 1.2.0
-                  </p>
-                  <p className="text-sm font-black mb-4 leading-tight italic">
-                    Premium Özellikler Aktif Edildi.
-                  </p>
-                  <Link
-                    href="/dashboard/settings"
-                    className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:gap-3 transition-all"
-                  >
-                    İNCELE <ChevronRight className="w-3 h-3" />
-                  </Link>
                 </div>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <div className="animate-pulse space-y-4">
@@ -217,6 +272,12 @@ export function Sidebar() {
           </p>
         </div>
       </div>
+
+      {/* PWA Install Help Modal */}
+      <PWAInstallHelpModal
+        open={showHelpModal}
+        onOpenChange={setShowHelpModal}
+      />
     </aside>
   );
 }
