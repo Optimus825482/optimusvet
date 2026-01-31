@@ -102,14 +102,14 @@ export const animalSchema = z.object({
     "RODENT",
     "OTHER",
   ]),
-  breed: z.string().optional(),
+  breed: z.string().optional().nullable(),
   gender: z.enum(["MALE", "FEMALE"]).optional().nullable(),
-  birthDate: z.date().optional().nullable(),
-  weight: z.coerce.number().optional(),
-  color: z.string().optional(),
-  chipNumber: z.string().optional(),
-  earTag: z.string().optional(),
-  notes: z.string().optional(),
+  birthDate: z.coerce.date().optional().nullable(),
+  weight: z.coerce.number().optional().nullable(),
+  color: z.string().optional().nullable(),
+  chipNumber: z.string().optional().nullable(),
+  earTag: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 // Transaction Schemas

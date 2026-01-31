@@ -80,18 +80,40 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = animalSchema.parse(body);
+
+    console.log("Gelen hayvan verisi:", body);
+
+    // Tarihleri Date objesine çevir
+    const processedData = {
+      ...body,
+      birthDate: body.birthDate ? new Date(body.birthDate) : null,
+      weight: body.weight ? Number(body.weight) : null,
+    };
+
+    const validatedData = animalSchema.parse(processedData);
+
+    console.log("Validate edilmiş veri:", validatedData);
 
     const animal = await prisma.animal.create({
       data: {
-        ...validatedData,
+        customerId: validatedData.customerId,
+        name: validatedData.name,
+        species: validatedData.species,
+        breed: validatedData.breed || null,
+        gender: validatedData.gender || null,
         birthDate: validatedData.birthDate || null,
         weight: validatedData.weight || null,
+        color: validatedData.color || null,
+        chipNumber: validatedData.chipNumber || null,
+        earTag: validatedData.earTag || null,
+        notes: validatedData.notes || null,
       },
       include: {
         customer: true,
       },
     });
+
+    console.log("Oluşturulan hayvan:", animal);
 
     return NextResponse.json(animal, { status: 201 });
   } catch (error: unknown) {
@@ -108,7 +130,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Hayvan eklenirken hata oluştu" },
+      {
+        error: "Hayvan eklenirken hata oluştu",
+        details: error instanceof Error ? error.message : "Bilinmeyen hata",
+      },
       { status: 500 },
     );
   }

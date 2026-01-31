@@ -1,8 +1,11 @@
 import { prisma } from "./prisma";
+import { Prisma } from "@prisma/client";
 
 /**
  * Tahsilat yapıldığında en eski alacaklardan başlayarak düşer
  * FIFO (First In First Out) mantığı
+ *
+ * @deprecated Use allocatePaymentToSalesInTransaction instead for better atomicity
  */
 export async function allocatePaymentToSales(
   customerId: string,
@@ -12,7 +15,7 @@ export async function allocatePaymentToSales(
   const pendingSales = await prisma.transaction.findMany({
     where: {
       customerId,
-      type: "SALE",
+      type: { in: ["SALE", "TREATMENT"] },
       status: {
         in: ["PENDING", "PARTIAL"],
       },
@@ -72,6 +75,75 @@ export async function allocatePaymentToSales(
     allocatedAmount: paymentAmount - remainingPayment,
     remainingPayment,
     updatedSales: updates.length,
+  };
+}
+
+/**
+ * Transaction-safe version: Tahsilat yapıldığında en eski alacaklardan başlayarak düşer
+ * FIFO (First In First Out) mantığı
+ *
+ * Bu fonksiyon Prisma transaction içinde çalışır ve atomicity garantisi sağlar
+ */
+export async function allocatePaymentToSalesInTransaction(
+  tx: Prisma.TransactionClient,
+  customerId: string,
+  paymentAmount: number,
+) {
+  // En eski bekleyen/kısmi ödenmiş satışları getir
+  const pendingSales = await tx.transaction.findMany({
+    where: {
+      customerId,
+      type: { in: ["SALE", "TREATMENT"] },
+      status: {
+        in: ["PENDING", "PARTIAL"],
+      },
+    },
+    orderBy: {
+      date: "asc", // En eski önce
+    },
+  });
+
+  let remainingPayment = paymentAmount;
+  const updatedSales: string[] = [];
+
+  for (const sale of pendingSales) {
+    if (remainingPayment <= 0) break;
+
+    const saleTotal = Number(sale.total);
+    const alreadyPaid = Number(sale.paidAmount);
+    const remainingDebt = saleTotal - alreadyPaid;
+
+    if (remainingDebt <= 0) continue; // Zaten ödendi
+
+    if (remainingPayment >= remainingDebt) {
+      // Bu satış tamamen ödenebilir
+      await tx.transaction.update({
+        where: { id: sale.id },
+        data: {
+          paidAmount: saleTotal,
+          status: "PAID",
+        },
+      });
+      remainingPayment -= remainingDebt;
+      updatedSales.push(sale.id);
+    } else {
+      // Kısmi ödeme
+      await tx.transaction.update({
+        where: { id: sale.id },
+        data: {
+          paidAmount: alreadyPaid + remainingPayment,
+          status: "PARTIAL",
+        },
+      });
+      updatedSales.push(sale.id);
+      remainingPayment = 0;
+    }
+  }
+
+  return {
+    allocatedAmount: paymentAmount - remainingPayment,
+    remainingPayment,
+    updatedSales: updatedSales.length,
   };
 }
 

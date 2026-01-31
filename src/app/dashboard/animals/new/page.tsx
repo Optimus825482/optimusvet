@@ -117,27 +117,47 @@ export default function NewAnimalPage() {
     }
     setLoading(true);
     try {
+      // Tarihleri ISO string'e çevir
+      const payload = {
+        ...data,
+        customerId: selectedCustomer.id,
+        birthDate: data.birthDate
+          ? new Date(data.birthDate).toISOString()
+          : null,
+        weight: data.weight ? Number(data.weight) : null,
+      };
+
+      console.log("Gönderilen veri:", payload);
+
       const response = await fetch("/api/animals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, customerId: selectedCustomer.id }),
+        body: JSON.stringify(payload),
       });
+
       const result = await response.json();
+
+      console.log("API yanıtı:", result);
+
       if (!response.ok) {
+        console.error("API hatası:", result);
         toast({
           variant: "destructive",
           title: "Hata",
-          description: result.error,
+          description: result.error || "Hayvan eklenirken hata oluştu",
         });
         return;
       }
+
       toast({
-        variant: "success",
         title: "Başarılı",
         description: "Hayvan başarıyla eklendi",
       });
+
       router.push("/dashboard/animals");
+      router.refresh();
     } catch (error) {
+      console.error("Hayvan ekleme hatası:", error);
       toast({
         variant: "destructive",
         title: "Hata",
@@ -343,7 +363,13 @@ export default function NewAnimalPage() {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="birthDate">Doğum Tarihi</Label>
-                <Input id="birthDate" type="date" {...register("birthDate")} />
+                <Input
+                  id="birthDate"
+                  type="date"
+                  {...register("birthDate", {
+                    setValueAs: (value) => (value ? new Date(value) : null),
+                  })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="weight">Ağırlık (kg)</Label>
@@ -353,33 +379,37 @@ export default function NewAnimalPage() {
                   step="0.1"
                   min="0"
                   placeholder="0.0"
-                  {...register("weight")}
+                  {...register("weight", {
+                    setValueAs: (value) => (value ? Number(value) : null),
+                  })}
                 />
               </div>
             </div>
-            {/* Büyükbaş hayvanlar için Kulak Küpe Numarası */}
-            {["CATTLE", "SHEEP", "GOAT"].includes(selectedSpecies) && (
-              <div className="space-y-2">
-                <Label htmlFor="earTag">Kulak Küpe Numarası</Label>
-                <Input
-                  id="earTag"
-                  placeholder="Kulak küpe numarası"
-                  {...register("earTag" as any)}
-                />
-              </div>
-            )}
+            <div className="grid sm:grid-cols-2 gap-4">
+              {/* Büyükbaş hayvanlar için Kulak Küpe Numarası */}
+              {["CATTLE", "SHEEP", "GOAT"].includes(selectedSpecies) && (
+                <div className="space-y-2">
+                  <Label htmlFor="earTag">Kulak Küpe Numarası</Label>
+                  <Input
+                    id="earTag"
+                    placeholder="Kulak küpe numarası"
+                    {...register("earTag")}
+                  />
+                </div>
+              )}
 
-            {/* Evcil hayvanlar için Mikroçip Numarası */}
-            {["DOG", "CAT", "HORSE"].includes(selectedSpecies) && (
-              <div className="space-y-2">
-                <Label htmlFor="chipNumber">Mikroçip Numarası</Label>
-                <Input
-                  id="chipNumber"
-                  placeholder="15 haneli çip numarası"
-                  {...register("chipNumber")}
-                />
-              </div>
-            )}
+              {/* Evcil hayvanlar için Mikroçip Numarası */}
+              {["DOG", "CAT", "HORSE"].includes(selectedSpecies) && (
+                <div className="space-y-2">
+                  <Label htmlFor="chipNumber">Mikroçip Numarası</Label>
+                  <Input
+                    id="chipNumber"
+                    placeholder="15 haneli çip numarası"
+                    {...register("chipNumber")}
+                  />
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
         <Card>
