@@ -96,7 +96,7 @@ export function TreatmentFormModal({
   const [productOpen, setProductOpen] = useState(false);
 
   // Fetch products for selection
-  const { data: products = [] } = useQuery({
+  const { data: productsData } = useQuery({
     queryKey: ["products", "medicine"],
     queryFn: async () => {
       const res = await fetch("/api/products?category=MEDICINE&isActive=true");
@@ -105,6 +105,10 @@ export function TreatmentFormModal({
     },
     enabled: open,
   });
+
+  const products = Array.isArray(productsData?.products)
+    ? productsData.products
+    : [];
 
   const form = useForm<TreatmentFormValues>({
     // @ts-expect-error - z.coerce type inference issue with react-hook-form
