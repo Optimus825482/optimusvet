@@ -9,10 +9,9 @@ export const treatmentStatusEnum = z.enum([
   "CANCELLED",
 ]);
 
-// Create Treatment Schema
+// Create Treatment Schema - Sadece sağlık geçmişi için, satış bağlantısı yok
 export const createTreatmentSchema = z.object({
   illnessId: z.string().cuid("Geçersiz hastalık ID"),
-  productId: z.string().cuid("Geçersiz ürün ID").optional().nullable(),
   name: z.string().min(1, "Tedavi adı zorunludur").max(200),
   dosage: z.string().max(200).optional().nullable(),
   frequency: z.string().max(200).optional().nullable(),
@@ -21,7 +20,6 @@ export const createTreatmentSchema = z.object({
   endDate: z.string().datetime().or(z.date()).optional().nullable(),
   applicationMethod: z.string().max(200).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
-  cost: z.number().nonnegative().default(0),
   status: treatmentStatusEnum.default("ONGOING"),
   nextCheckupDate: z.string().datetime().or(z.date()).optional().nullable(),
   createReminders: z.boolean().optional(), // Hatırlatma oluşturma flag'i

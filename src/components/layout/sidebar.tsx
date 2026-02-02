@@ -158,7 +158,8 @@ export function Sidebar() {
     const success = await installPWA();
     if (success) {
       toast({
-        title: "Başarılı!",
+        variant: "success",
+        title: "Başarılı",
         description: "Uygulama cihazınıza yükleniyor...",
       });
     } else {
@@ -230,9 +231,9 @@ export function Sidebar() {
                               isActive
                                 ? "bg-white/10 text-white group-hover:rotate-6"
                                 : cn(
-                                    "group-hover:bg-current/5 group-hover:rotate-3",
-                                    item.color,
-                                  ),
+                                  "group-hover:bg-current/5 group-hover:rotate-3",
+                                  item.color,
+                                ),
                             )}
                           >
                             <item.icon
@@ -301,9 +302,9 @@ export function Sidebar() {
                             isActive
                               ? "bg-white/10 text-white group-hover:rotate-6"
                               : cn(
-                                  "group-hover:bg-current/5 group-hover:rotate-3",
-                                  item.color,
-                                ),
+                                "group-hover:bg-current/5 group-hover:rotate-3",
+                                item.color,
+                              ),
                           )}
                         >
                           <item.icon

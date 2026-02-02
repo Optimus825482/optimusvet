@@ -55,6 +55,7 @@ export default function LoginPage() {
 
       if (result?.ok) {
         toast({
+          variant: "success",
           title: "Hoş geldiniz!",
           description: "Giriş başarılı, yönlendiriliyorsunuz...",
         });

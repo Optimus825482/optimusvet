@@ -17,6 +17,7 @@ import {
   Calculator,
   CreditCard,
   Banknote,
+  CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
@@ -88,9 +98,68 @@ export default function NewSalePage() {
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paidAmount, setPaidAmount] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [saleDate, setSaleDate] = useState<Date>(new Date());
+  const [isRetailSale, setIsRetailSale] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Müşteri seçim modal'ı için state
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+
+  // URL Parametrelerini işle
+  const initialParamsProcessed = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+
+  // Pre-fill from URL params
+  const { data: initialData } = useQuery({
+    queryKey: ["initial-sale-data", preSelectedCustomerId],
+    queryFn: async () => {
+      const customerId = searchParams.get("customerId");
+      const animalId = searchParams.get("animalId");
+      const productId = searchParams.get("productId");
+      const quantity = parseInt(searchParams.get("quantity") || "1");
+
+      const result: any = {};
+
+      if (customerId) {
+        const res = await fetch(`/api/customers/${customerId}`);
+        if (res.ok) result.customer = await res.json();
+      }
+
+      if (animalId) {
+        const res = await fetch(`/api/animals/${animalId}`);
+        if (res.ok) result.animal = await res.json();
+      }
+
+      if (productId) {
+        const res = await fetch(`/api/products/${productId}`);
+        if (res.ok) result.product = await res.json();
+      }
+
+      result.quantity = quantity;
+      return result;
+    },
+    enabled: !!(
+      searchParams.get("customerId") || searchParams.get("productId")
+    ),
+  });
+
+  // Apply initial data
+  useState(() => {
+    if (initialData && !initialParamsProcessed[0]) {
+      if (initialData.customer) setSelectedCustomer(initialData.customer);
+      if (initialData.animal) setSelectedAnimal(initialData.animal);
+      if (initialData.product) {
+        setCart([
+          {
+            product: initialData.product,
+            quantity: initialData.quantity || 1,
+            discount: 0,
+          },
+        ]);
+      }
+      initialParamsProcessed[1](true);
+    }
+  });
 
   // Fetch customers
   const { data: customersData } = useQuery<{ customers: Customer[] }>({
@@ -267,6 +336,7 @@ export default function NewSalePage() {
           paidAmount: parseFloat(paidAmount) || 0,
           paymentMethod,
           notes,
+          date: saleDate.toISOString(),
         }),
       });
 
@@ -318,88 +388,157 @@ export default function NewSalePage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left: Customer & Products */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Customer Selection */}
+          {/* Customer Selection & Date */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5 text-primary" />
-                Müşteri (Opsiyonel)
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" />
+                  Müşteri & İşlem Bilgileri
+                </div>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {selectedCustomer ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20">
-                    <div>
-                      <div className="font-semibold">
-                        {selectedCustomer.name}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {selectedCustomer.phone} • Bakiye:{" "}
-                        <span
-                          className={
-                            selectedCustomer.balance > 0
-                              ? "text-destructive"
-                              : "text-emerald-600"
-                          }
+            <CardContent className="space-y-4">
+              {/* Perakende Satış Checkbox */}
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <input
+                  type="checkbox"
+                  id="retailSale"
+                  checked={isRetailSale}
+                  onChange={(e) => {
+                    setIsRetailSale(e.target.checked);
+                    if (e.target.checked) {
+                      setSelectedCustomer(null);
+                      setSelectedAnimal(null);
+                    }
+                  }}
+                  className="w-5 h-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                />
+                <label htmlFor="retailSale" className="flex-1 cursor-pointer">
+                  <div className="font-medium text-amber-800">Perakende Satış</div>
+                  <div className="text-sm text-amber-600">Müşteri seçmeden satış yapın</div>
+                </label>
+              </div>
+
+              {/* Tarih Seçimi */}
+              <div className="space-y-2">
+                <Label>İşlem Tarihi</Label>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !saleDate && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {saleDate ? (
+                        format(saleDate, "dd MMMM yyyy", { locale: tr })
+                      ) : (
+                        <span>Tarih seçin</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={saleDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSaleDate(date);
+                          setCalendarOpen(false);
+                        }
+                      }}
+                      locale={tr}
+                      disabled={(date) => date > new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">
+                  Geçmiş tarihli satış için farklı bir tarih seçebilirsiniz
+                </p>
+              </div>
+
+              {/* Müşteri Seçimi - Perakende değilse göster */}
+              {!isRetailSale && (
+                <>
+                  {selectedCustomer ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20">
+                        <div>
+                          <div className="font-semibold">
+                            {selectedCustomer.name}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {selectedCustomer.phone} • Bakiye:{" "}
+                            <span
+                              className={
+                                selectedCustomer.balance > 0
+                                  ? "text-destructive"
+                                  : "text-emerald-600"
+                              }
+                            >
+                              {formatCurrency(selectedCustomer.balance)}
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCustomer(null);
+                            setSelectedAnimal(null);
+                          }}
                         >
-                          {formatCurrency(selectedCustomer.balance)}
-                        </span>
+                          Değiştir
+                        </Button>
                       </div>
+
+                      {/* Animal Selection */}
+                      {animalsData?.animals && animalsData.animals.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Hayvan (Opsiyonel)</Label>
+                          <Select
+                            value={selectedAnimal?.id || ""}
+                            onValueChange={(id) => {
+                              const animal = animalsData.animals.find(
+                                (a) => a.id === id,
+                              );
+                              setSelectedAnimal(animal || null);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Hayvan seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {animalsData.animals.map((animal) => (
+                                <SelectItem key={animal.id} value={animal.id}>
+                                  <div className="flex items-center gap-2">
+                                    <PawPrint className="w-4 h-4" />
+                                    {animal.name} - {animal.breed || animal.species}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
+                  ) : (
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedCustomer(null);
-                        setSelectedAnimal(null);
-                      }}
+                      className="w-full"
+                      onClick={() => setShowCustomerModal(true)}
                     >
-                      Değiştir
+                      <User className="w-4 h-4 mr-2" />
+                      Müşteri Seç (Opsiyonel)
                     </Button>
-                  </div>
-
-                  {/* Animal Selection */}
-                  {animalsData?.animals && animalsData.animals.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Hayvan (Opsiyonel)</Label>
-                      <Select
-                        value={selectedAnimal?.id || ""}
-                        onValueChange={(id) => {
-                          const animal = animalsData.animals.find(
-                            (a) => a.id === id,
-                          );
-                          setSelectedAnimal(animal || null);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Hayvan seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {animalsData.animals.map((animal) => (
-                            <SelectItem key={animal.id} value={animal.id}>
-                              <div className="flex items-center gap-2">
-                                <PawPrint className="w-4 h-4" />
-                                {animal.name} - {animal.breed || animal.species}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   )}
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setShowCustomerModal(true)}
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Müşteri Seç
-                </Button>
+                </>
               )}
             </CardContent>
           </Card>
@@ -789,13 +928,12 @@ export default function NewSalePage() {
                         </div>
                         <div className="text-right ml-4">
                           <div
-                            className={`font-semibold ${
-                              customer.balance > 0
-                                ? "text-destructive"
-                                : customer.balance < 0
-                                  ? "text-emerald-600"
-                                  : "text-muted-foreground"
-                            }`}
+                            className={`font-semibold ${customer.balance > 0
+                              ? "text-destructive"
+                              : customer.balance < 0
+                                ? "text-emerald-600"
+                                : "text-muted-foreground"
+                              }`}
                           >
                             {formatCurrency(customer.balance)}
                           </div>

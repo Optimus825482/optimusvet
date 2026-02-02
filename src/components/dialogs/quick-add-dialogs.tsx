@@ -45,6 +45,7 @@ export function QuickAddProductDialog({ open, onOpenChange, onSuccess }: QuickAd
 
             if (response.ok) {
                 toast({
+                    variant: 'success',
                     title: 'Başarılı',
                     description: 'Ürün eklendi',
                 })
@@ -168,6 +169,7 @@ export function QuickAddCustomerDialog({ open, onOpenChange, onSuccess }: QuickA
 
             if (response.ok) {
                 toast({
+                    variant: 'success',
                     title: 'Başarılı',
                     description: 'Müşteri eklendi',
                 })

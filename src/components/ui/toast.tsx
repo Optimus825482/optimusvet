@@ -30,13 +30,13 @@ const toastVariants = cva(
             variant: {
                 default: "border-slate-200 bg-white text-slate-900 shadow-lg",
                 success:
-                    "success group border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100",
+                    "success group border-emerald-400 bg-emerald-100 text-emerald-900 dark:border-emerald-600 dark:bg-emerald-900 dark:text-emerald-100",
                 destructive:
-                    "destructive group border-coral-300 bg-coral-50 text-coral-800 dark:border-coral-700 dark:bg-coral-950 dark:text-coral-100",
+                    "destructive group border-red-400 bg-red-100 text-red-900 dark:border-red-600 dark:bg-red-900 dark:text-red-100",
                 warning:
-                    "warning group border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100",
+                    "warning group border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-600 dark:bg-amber-900 dark:text-amber-100",
                 info:
-                    "info group border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-100",
+                    "info group border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-600 dark:bg-sky-900 dark:text-sky-100",
             },
         },
         defaultVariants: {

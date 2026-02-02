@@ -205,11 +205,10 @@ export default function SettingsPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
-                      activeTab === tab.id
-                        ? "bg-primary text-white"
-                        : "hover:bg-slate-100 dark:hover:bg-slate-800"
-                    }`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${activeTab === tab.id
+                      ? "bg-primary text-white"
+                      : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
                   >
                     <tab.icon className="w-5 h-5" />
                     <span className="font-medium">{tab.label}</span>
@@ -284,7 +283,7 @@ export default function SettingsPage() {
                     id="clinicAddress"
                     value={clinicAddress}
                     onChange={(e) => setClinicAddress(e.target.value)}
-                    className="flex min-h-[80px] w-full rounded-xl border-2 border-input bg-background px-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
+                    className="flex min-h-20 w-full rounded-xl border-2 border-input bg-background px-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
                     placeholder="Açık adres"
                   />
                 </div>
@@ -403,14 +402,16 @@ export default function SettingsPage() {
                       </div>
                       <button
                         onClick={() => setEmailEnabled(!emailEnabled)}
-                        className={`w-12 h-6 rounded-full transition-colors ${
-                          emailEnabled ? "bg-primary" : "bg-slate-300"
-                        }`}
+                        className={`w-12 h-6 rounded-full transition-colors ${emailEnabled ? "bg-primary" : "bg-slate-300"
+                          }`}
+                        aria-label="E-posta bildirimlerini aç/kapat"
+                        role="switch"
+                        aria-checked={emailEnabled}
+                        type="button"
                       >
                         <div
-                          className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                            emailEnabled ? "translate-x-6" : "translate-x-0.5"
-                          }`}
+                          className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${emailEnabled ? "translate-x-6" : "translate-x-0.5"
+                            }`}
                         />
                       </button>
                     </div>
@@ -502,14 +503,16 @@ export default function SettingsPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setSmtpSecure(!smtpSecure)}
-                          className={`w-10 h-5 rounded-full transition-colors ${
-                            smtpSecure ? "bg-primary" : "bg-slate-300"
-                          }`}
+                          className={`w-10 h-5 rounded-full transition-colors ${smtpSecure ? "bg-primary" : "bg-slate-300"
+                            }`}
+                          aria-label="Güvenli bağlantı aç/kapat"
+                          role="switch"
+                          aria-checked={smtpSecure}
+                          type="button"
                         >
                           <div
-                            className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                              smtpSecure ? "translate-x-5" : "translate-x-0.5"
-                            }`}
+                            className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${smtpSecure ? "translate-x-5" : "translate-x-0.5"
+                              }`}
                           />
                         </button>
                         <span className="text-sm font-medium">
@@ -547,7 +550,7 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-3 text-sm text-sky-900/80 font-medium leading-relaxed">
                     <div className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
                         1
                       </span>
                       <p>
@@ -556,7 +559,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <div className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
                         2
                       </span>
                       <p>
@@ -565,7 +568,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <div className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
                         3
                       </span>
                       <p>
@@ -574,7 +577,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <div className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
                         4
                       </span>
                       <p>
@@ -583,7 +586,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <div className="flex gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-xs font-black text-sky-600 border border-sky-200">
                         5
                       </span>
                       <p>

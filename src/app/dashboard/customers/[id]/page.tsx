@@ -10,6 +10,7 @@ import {
   Mail,
   MapPin,
   Calendar,
+  CalendarIcon,
   PawPrint,
   Receipt,
   Edit,
@@ -49,6 +50,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -116,6 +126,10 @@ export default function CustomerDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [saleDate, setSaleDate] = useState<Date>(new Date());
+  const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+  const [saleCalendarOpen, setSaleCalendarOpen] = useState(false);
+  const [paymentCalendarOpen, setPaymentCalendarOpen] = useState(false);
 
   // Ürün arama ve sepet state'leri
   const [productSearch, setProductSearch] = useState("");
@@ -163,6 +177,7 @@ export default function CustomerDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["customer", params.id] });
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast({
+        variant: "success",
         title: "Başarılı",
         description: "Müşteri resmi güncellendi",
       });
@@ -221,6 +236,7 @@ export default function CustomerDetailPage() {
       setShowStatementModal(true);
 
       toast({
+        variant: "success",
         title: "Başarılı",
         description: "Hesap ekstresi oluşturuldu",
       });
@@ -423,7 +439,7 @@ export default function CustomerDetailPage() {
         body: JSON.stringify({
           type: "SALE",
           customerId: customer.id,
-          date: new Date().toISOString(),
+          date: saleDate.toISOString(),
           items: cart.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
@@ -449,6 +465,7 @@ export default function CustomerDetailPage() {
       }
 
       toast({
+        variant: "success",
         title: "Başarılı",
         description: `₺${total.toLocaleString("tr-TR")} tutarında satış oluşturuldu`,
       });
@@ -463,6 +480,7 @@ export default function CustomerDetailPage() {
       setProductQuantity("1");
       setProductPrice("");
       setPaidAmount("");
+      setSaleDate(new Date());
     } catch (error) {
       console.error("Sale error:", error);
       toast({
@@ -499,12 +517,14 @@ export default function CustomerDetailPage() {
           paidAmount: 0,
           status: "PENDING",
           paymentMethod: paymentMethod,
+          date: paymentDate.toISOString(),
         }),
       });
 
       if (!res.ok) throw new Error("Tahsilat oluşturulamadı");
 
       toast({
+        variant: "success",
         title: "Başarılı",
         description: `₺${Number(paymentAmount).toLocaleString("tr-TR")} tutarında tahsilat kaydedildi`,
       });
@@ -513,6 +533,7 @@ export default function CustomerDetailPage() {
       setShowPaymentModal(false);
       setPaymentAmount("");
       setPaymentMethod("CASH");
+      setPaymentDate(new Date());
     } catch (error) {
       console.error("Payment error:", error);
       toast({
@@ -527,7 +548,7 @@ export default function CustomerDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -626,7 +647,7 @@ export default function CustomerDetailPage() {
                   src={customer.image || undefined}
                   alt={customer.name}
                 />
-                <AvatarFallback className="text-2xl bg-gradient-to-br from-teal-400 to-teal-600 text-white">
+                <AvatarFallback className="text-2xl bg-linear-to-br from-teal-400 to-teal-600 text-white">
                   {getInitials(customer.name)}
                 </AvatarFallback>
               </Avatar>
@@ -663,6 +684,7 @@ export default function CustomerDetailPage() {
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
+                aria-label="Profil resmi yükle"
               />
             </div>
 
@@ -702,13 +724,12 @@ export default function CustomerDetailPage() {
               <div className="mt-4 p-4 bg-muted rounded-lg">
                 <div className="text-sm text-muted-foreground mb-1">Bakiye</div>
                 <div
-                  className={`text-2xl font-bold ${
-                    customer.balance > 0
-                      ? "text-destructive"
-                      : customer.balance < 0
-                        ? "text-emerald-600"
-                        : ""
-                  }`}
+                  className={`text-2xl font-bold ${customer.balance > 0
+                    ? "text-destructive"
+                    : customer.balance < 0
+                      ? "text-emerald-600"
+                      : ""
+                    }`}
                 >
                   {customer.balance > 0 ? "+" : ""}
                   {Number(customer.balance || 0).toLocaleString("tr-TR", {
@@ -830,13 +851,12 @@ export default function CustomerDetailPage() {
                                         ? "outline"
                                         : "secondary"
                                   }
-                                  className={`text-xs ${
-                                    transaction.type === "SALE"
-                                      ? "bg-emerald-500 hover:bg-emerald-600"
-                                      : transaction.type === "CUSTOMER_PAYMENT"
-                                        ? "border-blue-500 text-blue-600"
-                                        : ""
-                                  }`}
+                                  className={`text-xs ${transaction.type === "SALE"
+                                    ? "bg-emerald-500 hover:bg-emerald-600"
+                                    : transaction.type === "CUSTOMER_PAYMENT"
+                                      ? "border-blue-500 text-blue-600"
+                                      : ""
+                                    }`}
                                 >
                                   {transaction.type === "SALE"
                                     ? "Satış"
@@ -1002,7 +1022,7 @@ export default function CustomerDetailPage() {
                                 src={animal.image || undefined}
                                 alt={animal.name}
                               />
-                              <AvatarFallback className="bg-gradient-to-br from-violet-400 to-violet-600 text-white">
+                              <AvatarFallback className="bg-linear-to-br from-violet-400 to-violet-600 text-white">
                                 <PawPrint className="w-8 h-8" />
                               </AvatarFallback>
                             </Avatar>
@@ -1040,7 +1060,7 @@ export default function CustomerDetailPage() {
         onOpenChange={handleCloseStatementModal}
       >
         <DialogContent className="max-w-4xl h-[90vh] p-0 flex flex-col">
-          <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+          <DialogHeader className="px-6 py-4 border-b shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <span>Hesap Ekstresi - {customer.name}</span>
               <div className="flex gap-2">
@@ -1119,13 +1139,12 @@ export default function CustomerDetailPage() {
                           ? "outline"
                           : "secondary"
                     }
-                    className={`text-xs ${
-                      selectedTransaction.type === "SALE"
-                        ? "bg-emerald-500 hover:bg-emerald-600"
-                        : selectedTransaction.type === "CUSTOMER_PAYMENT"
-                          ? "border-blue-500 text-blue-600"
-                          : ""
-                    }`}
+                    className={`text-xs ${selectedTransaction.type === "SALE"
+                      ? "bg-emerald-500 hover:bg-emerald-600"
+                      : selectedTransaction.type === "CUSTOMER_PAYMENT"
+                        ? "border-blue-500 text-blue-600"
+                        : ""
+                      }`}
                   >
                     {selectedTransaction.type === "SALE"
                       ? "Satış"
@@ -1363,6 +1382,47 @@ export default function CustomerDetailPage() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Tarih Seçimi */}
+            <div className="space-y-2">
+              <Label>İşlem Tarihi</Label>
+              <Popover open={saleCalendarOpen} onOpenChange={setSaleCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !saleDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {saleDate ? (
+                      format(saleDate, "dd MMMM yyyy", { locale: tr })
+                    ) : (
+                      <span>Tarih seçin</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={saleDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSaleDate(date);
+                        setSaleCalendarOpen(false);
+                      }
+                    }}
+                    locale={tr}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Geçmiş tarihli satış için farklı bir tarih seçebilirsiniz
+              </p>
+            </div>
+
             {/* Ürün Arama */}
             <div className="space-y-2">
               <Label>Ürün Ara</Label>
@@ -1376,7 +1436,7 @@ export default function CustomerDetailPage() {
 
                 {/* Arama Sonuçları Dropdown */}
                 {productSearch.length >= 2 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-75 overflow-y-auto">
                     {isSearching ? (
                       <div className="py-6 text-center text-sm">
                         <Loader2 className="w-4 h-4 animate-spin mx-auto" />
@@ -1446,7 +1506,7 @@ export default function CustomerDetailPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setSelectedProduct(null)}
-                        className="flex-shrink-0"
+                        className="shrink-0"
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -1641,7 +1701,7 @@ export default function CustomerDetailPage() {
                               onClick={() =>
                                 handleRemoveFromCart(item.productId)
                               }
-                              className="text-destructive hover:text-destructive h-8 w-8 p-0 flex-shrink-0"
+                              className="text-destructive hover:text-destructive h-8 w-8 p-0 shrink-0"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -1702,7 +1762,7 @@ export default function CustomerDetailPage() {
                 {/* Toplam ve Ödeme */}
                 <div className="space-y-3">
                   {/* Toplam Tutar - Daha Belirgin */}
-                  <div className="p-4 bg-gradient-to-r from-emerald-50 to-emerald-100 border-2 border-emerald-200 rounded-lg">
+                  <div className="p-4 bg-linear-to-r from-emerald-50 to-emerald-100 border-2 border-emerald-200 rounded-lg">
                     <div className="flex items-center justify-between">
                       <span className="text-base sm:text-lg font-semibold text-emerald-900">
                         Toplam Tutar:
@@ -1810,6 +1870,47 @@ export default function CustomerDetailPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Tarih Seçimi */}
+            <div className="space-y-2">
+              <Label>İşlem Tarihi</Label>
+              <Popover open={paymentCalendarOpen} onOpenChange={setPaymentCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !paymentDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {paymentDate ? (
+                      format(paymentDate, "dd MMMM yyyy", { locale: tr })
+                    ) : (
+                      <span>Tarih seçin</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={paymentDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setPaymentDate(date);
+                        setPaymentCalendarOpen(false);
+                      }
+                    }}
+                    locale={tr}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Geçmiş tarihli tahsilat için farklı bir tarih seçebilirsiniz
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="paymentAmount">Tahsilat Tutarı (₺)</Label>
               <Input
@@ -1844,13 +1945,12 @@ export default function CustomerDetailPage() {
                 Mevcut Bakiye
               </div>
               <div
-                className={`text-2xl font-bold ${
-                  customer.balance > 0
-                    ? "text-destructive"
-                    : customer.balance < 0
-                      ? "text-emerald-600"
-                      : ""
-                }`}
+                className={`text-2xl font-bold ${customer.balance > 0
+                  ? "text-destructive"
+                  : customer.balance < 0
+                    ? "text-emerald-600"
+                    : ""
+                  }`}
               >
                 {customer.balance > 0 ? "+" : ""}
                 {Number(customer.balance || 0).toLocaleString("tr-TR", {

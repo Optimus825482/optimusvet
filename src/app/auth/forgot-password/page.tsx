@@ -47,6 +47,7 @@ export default function ForgotPasswordPage() {
 
       setEmailSent(true);
       toast({
+        variant: "success",
         title: "E-posta gönderildi",
         description:
           "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.",

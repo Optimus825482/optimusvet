@@ -112,37 +112,10 @@ export async function POST(
     // Extract createReminders flag
     const createReminders = body.createReminders === true;
 
-    // If product is selected, verify it exists and has stock
-    if (validatedData.productId) {
-      const product = await prisma.product.findUnique({
-        where: { id: validatedData.productId },
-        select: {
-          id: true,
-          name: true,
-          stock: true,
-          isService: true,
-          salePrice: true,
-        },
-      });
-
-      if (!product) {
-        return NextResponse.json(
-          { error: "Seçilen ürün bulunamadı" },
-          { status: 404 },
-        );
-      }
-
-      // If cost is not provided, use product sale price
-      if (!validatedData.cost && product.salePrice) {
-        validatedData.cost = Number(product.salePrice);
-      }
-    }
-
-    // Create treatment
+    // Create treatment - satış bağlantısı olmadan sadece sağlık geçmişi
     const treatment = await prisma.treatment.create({
       data: {
         illnessId: validatedData.illnessId,
-        productId: validatedData.productId,
         name: validatedData.name,
         dosage: validatedData.dosage,
         frequency: validatedData.frequency,
@@ -151,22 +124,12 @@ export async function POST(
         endDate: validatedData.endDate ? new Date(validatedData.endDate) : null,
         applicationMethod: validatedData.applicationMethod,
         notes: validatedData.notes,
-        cost: validatedData.cost,
         status: validatedData.status,
         nextCheckupDate: validatedData.nextCheckupDate
           ? new Date(validatedData.nextCheckupDate)
           : null,
       },
       include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            unit: true,
-            salePrice: true,
-          },
-        },
         illness: {
           select: {
             id: true,

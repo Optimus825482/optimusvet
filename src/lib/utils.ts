@@ -20,9 +20,11 @@ export function generateCode(prefix: string) {
 
 export function formatDate(date: string | Date | undefined | null) {
   if (!date) return "-";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
   return new Intl.DateTimeFormat("tr-TR", {
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(d);
 }

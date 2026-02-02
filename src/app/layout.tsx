@@ -3,6 +3,7 @@ import { Figtree, Noto_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import PWASetup from "@/components/pwa-setup";
 
 const figtree = Figtree({
@@ -81,20 +82,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr" suppressHydrationWarning>
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="OptimusVet" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#10b981" />
-        <meta name="msapplication-tap-highlight" content="no" />
-      </head>
       <body className={`${figtree.variable} ${notoSans.variable} font-sans`}>
         <Providers>
           <PWASetup />
           {children}
           <Toaster />
+          <SonnerToaster
+            position="top-right"
+            richColors
+            closeButton
+            toastOptions={{
+              classNames: {
+                success: "!bg-emerald-50 !border-emerald-300 !text-emerald-800",
+                error: "!bg-red-50 !border-red-300 !text-red-800",
+                warning: "!bg-amber-50 !border-amber-300 !text-amber-800",
+                info: "!bg-sky-50 !border-sky-300 !text-sky-800",
+              },
+            }}
+          />
         </Providers>
       </body>
     </html>

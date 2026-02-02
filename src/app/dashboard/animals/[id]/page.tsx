@@ -100,8 +100,11 @@ const speciesColors: Record<string, string> = {
   OTHER: "bg-purple-50 text-purple-600",
 };
 
-function formatDate(date: string | Date) {
-  return new Date(date).toLocaleDateString("tr-TR", {
+function formatDate(date: string | Date | null | undefined) {
+  if (!date) return "-";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("tr-TR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -919,7 +922,7 @@ function IllnessCard({
               {illness.name}
             </h3>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-              TANI TARİHİ: {formatDate(illness.diagnosisDate)}
+              TANI TARİHİ: {formatDate(illness.startDate)}
             </p>
           </div>
         </div>
@@ -1034,11 +1037,11 @@ function IllnessCard({
       </div>
 
       {/* Recovery Date */}
-      {illness.recoveryDate && (
+      {illness.endDate && (
         <div className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-emerald-50/50 border border-emerald-100">
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
-            İYİLEŞME TARİHİ: {formatDate(illness.recoveryDate)}
+            İYİLEŞME TARİHİ: {formatDate(illness.endDate)}
           </span>
         </div>
       )}

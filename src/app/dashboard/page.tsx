@@ -238,6 +238,7 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error("Tahsilat oluşturulamadı");
 
       toast({
+        variant: "success",
         title: "Başarılı",
         description: `₺${Number(paymentAmount).toLocaleString("tr-TR")} tutarında tahsilat kaydedildi`,
       });
@@ -964,12 +965,12 @@ export default function DashboardPage() {
                     <div className="text-2xl font-bold text-emerald-600">
                       {Number(selectedCustomer.balance) -
                         Number(paymentAmount) >
-                      0
+                        0
                         ? "+"
                         : ""}
                       {formatCurrency(
                         Number(selectedCustomer.balance) -
-                          Number(paymentAmount),
+                        Number(paymentAmount),
                       )}
                     </div>
                   </div>

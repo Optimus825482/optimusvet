@@ -150,6 +150,7 @@ export default function NewAnimalPage() {
       }
 
       toast({
+        variant: "success",
         title: "Başarılı",
         description: "Hayvan başarıyla eklendi",
       });

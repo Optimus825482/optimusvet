@@ -68,23 +68,60 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = customerSchema.parse(body);
 
-    // Generate code
-    const lastCustomer = await prisma.customer.findFirst({
-      orderBy: { code: "desc" },
-      select: { code: true },
-    });
-    const lastNumber = lastCustomer
-      ? parseInt(lastCustomer.code.split("-")[1])
-      : 0;
-    const newCode = `MUS-${(lastNumber + 1).toString().padStart(4, "0")}`;
+    // Generate unique code - find the actual maximum number
+    let customer;
+    let maxRetries = 10;
+    let attempt = 0;
 
-    const customer = await prisma.customer.create({
-      data: {
-        ...validatedData,
-        code: newCode,
-        email: validatedData.email || null,
-      },
-    });
+    while (attempt < maxRetries) {
+      try {
+        // Get ALL customer codes and find the maximum number
+        const allCustomers = await prisma.customer.findMany({
+          where: {
+            code: { startsWith: "MUS-" },
+          },
+          select: { code: true },
+        });
+
+        let maxNumber = 0;
+        for (const c of allCustomers) {
+          const parts = c.code.split("-");
+          if (parts[1]) {
+            const num = parseInt(parts[1], 10);
+            if (!isNaN(num) && num > maxNumber) {
+              maxNumber = num;
+            }
+          }
+        }
+
+        // Add attempt offset to ensure uniqueness on retry
+        const nextNumber = maxNumber + 1 + attempt;
+        const newCode = `MUS-${nextNumber.toString().padStart(4, "0")}`;
+
+        customer = await prisma.customer.create({
+          data: {
+            ...validatedData,
+            code: newCode,
+            email: validatedData.email || null,
+          },
+        });
+
+        break; // Success, exit loop
+      } catch (createError: any) {
+        if (createError.code === "P2002") {
+          // Unique constraint error, retry with incremented attempt
+          attempt++;
+          if (attempt >= maxRetries) {
+            throw new Error(
+              "Müşteri kodu oluşturulamadı. Lütfen tekrar deneyin.",
+            );
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          continue;
+        }
+        throw createError; // Re-throw if not retryable
+      }
+    }
 
     return NextResponse.json(customer, { status: 201 });
   } catch (error: unknown) {

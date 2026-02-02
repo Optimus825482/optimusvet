@@ -176,7 +176,8 @@ export default function SaleDetailPage() {
     onSuccess: () => {
       setDeleteDialogOpen(false);
       toast({
-        title: "✅ Satış Silindi",
+        variant: "success",
+        title: "Satış Silindi",
         description: `${sale?.code} kodlu satış başarıyla silindi. Stok ve bakiye güncellendi.`,
       });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
@@ -187,9 +188,9 @@ export default function SaleDetailPage() {
     },
     onError: (error: Error) => {
       toast({
-        title: "❌ Hata",
-        description: error.message || "Satış silinirken bir hata oluştu",
         variant: "destructive",
+        title: "Hata",
+        description: error.message || "Satış silinirken bir hata oluştu",
       });
     },
   });

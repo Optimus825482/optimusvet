@@ -65,6 +65,18 @@ export default function ProductEditPage() {
     reset,
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema) as any,
+    defaultValues: {
+      name: "",
+      barcode: "",
+      description: "",
+      unit: "Adet",
+      purchasePrice: "0",
+      salePrice: "0",
+      vatRate: "20",
+      criticalLevel: "",
+      isService: false,
+      categoryId: "NONE",
+    },
   });
 
   const isService = watch("isService");
@@ -91,7 +103,7 @@ export default function ProductEditPage() {
   // Populate form when data loads
   useEffect(() => {
     if (product) {
-      reset({
+      const formData = {
         name: product.name || "",
         barcode: product.barcode || "",
         description: product.description || "",
@@ -102,9 +114,15 @@ export default function ProductEditPage() {
         criticalLevel: product.criticalLevel?.toString() || "",
         isService: product.isService || false,
         categoryId: product.categoryId || "NONE",
-      });
+      };
+      console.log("Setting form data:", formData);
+      reset(formData);
+      // Ayrıca Select alanları için manuel set yap
+      setValue("unit", formData.unit);
+      setValue("vatRate", formData.vatRate);
+      setValue("categoryId", formData.categoryId);
     }
-  }, [product, reset]);
+  }, [product, reset, setValue]);
 
   // Update mutation
   const updateMutation = useMutation({
@@ -140,8 +158,16 @@ export default function ProductEditPage() {
   });
 
   const onSubmit = (data: ProductFormData) => {
+    console.log("Form submitted with data:", data);
     updateMutation.mutate(data);
   };
+
+  // Form errors debug
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log("Form validation errors:", errors);
+    }
+  }, [errors]);
 
   if (isLoading) {
     return (
@@ -188,11 +214,10 @@ export default function ProductEditPage() {
               <button
                 type="button"
                 onClick={() => setValue("isService", false)}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
-                  !isService
-                    ? "border-emerald-500 bg-emerald-50"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${!isService
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-slate-200 hover:border-slate-300"
+                  }`}
               >
                 <Package
                   className={`h-5 w-5 ${!isService ? "text-emerald-600" : "text-slate-400"}`}
@@ -206,11 +231,10 @@ export default function ProductEditPage() {
               <button
                 type="button"
                 onClick={() => setValue("isService", true)}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
-                  isService
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${isService
+                  ? "border-purple-500 bg-purple-50"
+                  : "border-slate-200 hover:border-slate-300"
+                  }`}
               >
                 <Tag
                   className={`h-5 w-5 ${isService ? "text-purple-600" : "text-slate-400"}`}
@@ -259,7 +283,7 @@ export default function ProductEditPage() {
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className={errors.unit ? "border-red-500" : ""}>
                         <SelectValue placeholder="Birim seçin" />
                       </SelectTrigger>
                       <SelectContent>
@@ -272,6 +296,11 @@ export default function ProductEditPage() {
                     </Select>
                   )}
                 />
+                {errors.unit && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {errors.unit.message}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -340,7 +369,7 @@ export default function ProductEditPage() {
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className={errors.vatRate ? "border-red-500" : ""}>
                         <SelectValue placeholder="KDV oranı seçin" />
                       </SelectTrigger>
                       <SelectContent>
@@ -353,6 +382,11 @@ export default function ProductEditPage() {
                     </Select>
                   )}
                 />
+                {errors.vatRate && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {errors.vatRate.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">

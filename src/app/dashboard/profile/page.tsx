@@ -104,6 +104,7 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       toast({
+        variant: "success",
         title: "Başarılı",
         description:
           "Profil bilgileri güncellendi. Değişikliklerin görünmesi için sayfayı yenileyin.",
@@ -140,6 +141,7 @@ export default function ProfilePage() {
       setNewPassword("");
       setConfirmPassword("");
       toast({
+        variant: "success",
         title: "Başarılı",
         description: "Şifre başarıyla değiştirildi",
       });
@@ -181,6 +183,7 @@ export default function ProfilePage() {
       setIsAddUserModalOpen(false);
 
       toast({
+        variant: "success",
         title: "Başarılı",
         description: "Yeni kullanıcı başarıyla oluşturuldu",
       });
@@ -354,6 +357,7 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       toast({
+        variant: "success",
         title: "Başarılı",
         description: "Kullanıcı başarıyla güncellendi",
       });
@@ -461,7 +465,7 @@ export default function ProfilePage() {
 
   if (status === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -532,7 +536,7 @@ export default function ProfilePage() {
                   src={session.user.image || undefined}
                   alt={session.user.name || "User"}
                 />
-                <AvatarFallback className="text-2xl bg-gradient-to-br from-teal-400 to-teal-600 text-white">
+                <AvatarFallback className="text-2xl bg-linear-to-br from-teal-400 to-teal-600 text-white">
                   {getInitials(session.user.name || "U")}
                 </AvatarFallback>
               </Avatar>
@@ -569,6 +573,7 @@ export default function ProfilePage() {
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
+                aria-label="Profil resmi yükle"
               />
             </div>
 
@@ -730,7 +735,7 @@ export default function ProfilePage() {
 
       {/* Add User Modal */}
       <Dialog open={isAddUserModalOpen} onOpenChange={setIsAddUserModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-125">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-primary" />
@@ -866,7 +871,7 @@ export default function ProfilePage() {
         open={isUsersListModalOpen}
         onOpenChange={setIsUsersListModalOpen}
       >
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-175 max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
@@ -898,7 +903,7 @@ export default function ProfilePage() {
                         src={user.image || undefined}
                         alt={user.name}
                       />
-                      <AvatarFallback className="bg-gradient-to-br from-teal-400 to-teal-600 text-white">
+                      <AvatarFallback className="bg-linear-to-br from-teal-400 to-teal-600 text-white">
                         {getInitials(user.name)}
                       </AvatarFallback>
                     </Avatar>
@@ -980,7 +985,7 @@ export default function ProfilePage() {
 
       {/* Edit User Modal */}
       <Dialog open={isEditUserModalOpen} onOpenChange={setIsEditUserModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-125">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5 text-primary" />

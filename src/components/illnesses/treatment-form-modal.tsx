@@ -1,10 +1,9 @@
-// @ts-nocheck - z.coerce type inference issues with react-hook-form
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   Dialog,
@@ -22,7 +21,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,27 +32,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+// Sadeleştirilmiş şema - satış bağlantısı yok
 const treatmentFormSchema = z.object({
-  productId: z.string().optional(),
-  name: z.string().min(1, "Tedavi adı zorunludur"),
+  name: z.string().min(1, "Tedavi/ilaç adı zorunludur"),
   dosage: z.string().optional(),
   frequency: z.string().optional(),
   duration: z.string().optional(),
@@ -62,19 +53,32 @@ const treatmentFormSchema = z.object({
   endDate: z.date().optional(),
   applicationMethod: z.string().optional(),
   notes: z.string().optional(),
-  cost: z.coerce.number().nonnegative(),
   status: z.enum(["PLANNED", "ONGOING", "COMPLETED", "PAUSED", "CANCELLED"]),
   nextCheckupDate: z.date().optional(),
 });
 
 type TreatmentFormValues = z.infer<typeof treatmentFormSchema>;
 
+interface Treatment {
+  id: string;
+  name: string;
+  dosage?: string | null;
+  frequency?: string | null;
+  duration?: string | null;
+  startDate: string | Date;
+  endDate?: string | Date | null;
+  applicationMethod?: string | null;
+  notes?: string | null;
+  status: "PLANNED" | "ONGOING" | "COMPLETED" | "PAUSED" | "CANCELLED";
+  nextCheckupDate?: string | Date | null;
+}
+
 interface TreatmentFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   illnessId: string;
-  treatment?: any;
-  animalId?: string; // Optional for future use
+  treatment?: Treatment;
+  animalId?: string;
 }
 
 const statusLabels = {
@@ -93,30 +97,12 @@ export function TreatmentFormModal({
 }: TreatmentFormModalProps) {
   const queryClient = useQueryClient();
   const isEdit = !!treatment;
-  const [productOpen, setProductOpen] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
-  const [pendingTreatmentData, setPendingTreatmentData] = useState<any>(null);
-
-  // Fetch products for selection
-  const { data: productsData } = useQuery({
-    queryKey: ["products", "medicine"],
-    queryFn: async () => {
-      const res = await fetch("/api/products?category=MEDICINE&isActive=true");
-      if (!res.ok) throw new Error("Ürünler yüklenemedi");
-      return res.json();
-    },
-    enabled: open,
-  });
-
-  const products = Array.isArray(productsData?.products)
-    ? productsData.products
-    : [];
+  const [pendingTreatmentData, setPendingTreatmentData] = useState<TreatmentFormValues | null>(null);
 
   const form = useForm<TreatmentFormValues>({
-    // @ts-expect-error - z.coerce type inference issue with react-hook-form
     resolver: zodResolver(treatmentFormSchema),
     defaultValues: {
-      productId: treatment?.productId || "",
       name: treatment?.name || "",
       dosage: treatment?.dosage || "",
       frequency: treatment?.frequency || "",
@@ -127,25 +113,12 @@ export function TreatmentFormModal({
       endDate: treatment?.endDate ? new Date(treatment.endDate) : undefined,
       applicationMethod: treatment?.applicationMethod || "",
       notes: treatment?.notes || "",
-      cost: treatment?.cost ? Number(treatment.cost) : 0,
       status: treatment?.status || "ONGOING",
       nextCheckupDate: treatment?.nextCheckupDate
         ? new Date(treatment.nextCheckupDate)
         : undefined,
     },
   });
-
-  // Auto-fill product details when product is selected
-  const selectedProductId = form.watch("productId");
-  useEffect(() => {
-    if (selectedProductId && !isEdit) {
-      const product = products.find((p: any) => p.id === selectedProductId);
-      if (product) {
-        form.setValue("name", product.name);
-        form.setValue("cost", Number(product.salePrice || 0));
-      }
-    }
-  }, [selectedProductId, products, form, isEdit]);
 
   const mutation = useMutation({
     mutationFn: async (
@@ -162,7 +135,6 @@ export function TreatmentFormModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
-          productId: data.productId || null,
           startDate: data.startDate.toISOString(),
           endDate: data.endDate?.toISOString(),
           nextCheckupDate: data.nextCheckupDate?.toISOString(),
@@ -184,10 +156,8 @@ export function TreatmentFormModal({
       toast.success(
         isEdit ? "Tedavi kaydı güncellendi" : "Tedavi kaydı oluşturuldu",
       );
-      onOpenChange(false);
+      handleOpenChange(false);
       form.reset();
-      setShowReminderDialog(false);
-      setPendingTreatmentData(null);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -195,11 +165,7 @@ export function TreatmentFormModal({
   });
 
   const onSubmit = (data: TreatmentFormValues) => {
-    // Eğer başlangıç, bitiş veya kontrol tarihi varsa hatırlatma sor
-    const hasRemindableDates =
-      data.startDate || data.endDate || data.nextCheckupDate;
-
-    if (!isEdit && hasRemindableDates) {
+    if (!isEdit) {
       setPendingTreatmentData(data);
       setShowReminderDialog(true);
     } else {
@@ -213,121 +179,42 @@ export function TreatmentFormModal({
     }
   };
 
-  // Close reminder dialog when main modal closes
-  useEffect(() => {
-    if (!open) {
+  // Reset state when modal is opened/closed via callback
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
       setShowReminderDialog(false);
       setPendingTreatmentData(null);
     }
-  }, [open]);
+    onOpenChange(isOpen);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="rounded-[2.5rem] p-8 max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
             {isEdit ? "Tedavi Kaydını Düzenle" : "Yeni Tedavi Ekle"}
           </DialogTitle>
           <DialogDescription className="text-slate-500 font-medium">
-            Tedavi detaylarını girin
+            Hayvanın sağlık geçmişi için tedavi detaylarını girin
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="productId"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel className="text-xs font-black uppercase text-slate-600">
-                    İlaç / Ürün Seçimi
-                  </FormLabel>
-                  <Popover open={productOpen} onOpenChange={setProductOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                          "rounded-xl justify-between",
-                          !field.value && "text-muted-foreground",
-                        )}
-                      >
-                        {field.value
-                          ? products.find((p: any) => p.id === field.value)
-                              ?.name
-                          : "Ürün seçin (opsiyonel)"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0">
-                      <Command>
-                        <CommandInput placeholder="Ürün ara..." />
-                        <CommandEmpty>
-                          <div className="p-4 text-center space-y-2">
-                            <p className="text-sm text-muted-foreground">
-                              Ürün bulunamadı.
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Manuel tedavi adı girebilirsiniz
-                            </p>
-                          </div>
-                        </CommandEmpty>
-                        <CommandGroup className="max-h-64 overflow-auto">
-                          {products.map((product: any) => (
-                            <CommandItem
-                              key={product.id}
-                              value={product.name}
-                              onSelect={() => {
-                                form.setValue("productId", product.id);
-                                form.setValue("name", product.name);
-                                setProductOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  product.id === field.value
-                                    ? "opacity-100"
-                                    : "opacity-0",
-                                )}
-                              />
-                              <div className="flex-1">
-                                <p className="font-medium">{product.name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {product.code} • Stok: {product.stock}{" "}
-                                  {product.unit}
-                                </p>
-                              </div>
-                              <span className="text-sm font-bold">
-                                ₺{Number(product.salePrice).toFixed(2)}
-                              </span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <FormDescription className="text-xs">
-                    Stoktan ürün seçebilir veya manuel tedavi girebilirsiniz
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            {/* Tedavi/İlaç Adı */}
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs font-black uppercase text-slate-600">
-                    Tedavi Adı *
+                    Tedavi / İlaç Adı *
                   </FormLabel>
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder="Örn: Antibiyotik Tedavisi, Enjeksiyon"
+                      placeholder="Örn: Antibiyotik Tedavisi, Amoksisilin, Aşı"
                       className="rounded-xl"
                     />
                   </FormControl>
@@ -336,6 +223,7 @@ export function TreatmentFormModal({
               )}
             />
 
+            {/* Dozaj, Sıklık, Süre */}
             <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
@@ -398,50 +286,28 @@ export function TreatmentFormModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="applicationMethod"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-black uppercase text-slate-600">
-                      Uygulama Yöntemi
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Örn: Oral, IV, IM"
-                        className="rounded-xl"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Uygulama Yöntemi */}
+            <FormField
+              control={form.control}
+              name="applicationMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-black uppercase text-slate-600">
+                    Uygulama Yöntemi
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Örn: Oral, IV, IM, Subkutan"
+                      className="rounded-xl"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="cost"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-black uppercase text-slate-600">
-                      Maliyet (₺)
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        className="rounded-xl"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
+            {/* Durum */}
             <FormField
               control={form.control}
               name="status"
@@ -472,6 +338,7 @@ export function TreatmentFormModal({
               )}
             />
 
+            {/* Tarihler */}
             <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
@@ -594,6 +461,7 @@ export function TreatmentFormModal({
               />
             </div>
 
+            {/* Notlar */}
             <FormField
               control={form.control}
               name="notes"
@@ -606,7 +474,7 @@ export function TreatmentFormModal({
                     <Textarea
                       {...field}
                       placeholder="Uygulama detayları, yan etkiler, özel notlar"
-                      className="rounded-xl min-h-[80px]"
+                      className="rounded-xl min-h-20"
                     />
                   </FormControl>
                   <FormMessage />
@@ -618,7 +486,7 @@ export function TreatmentFormModal({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleOpenChange(false)}
                 className="rounded-xl border-slate-200 font-bold h-12 flex-1"
               >
                 İptal
@@ -710,27 +578,25 @@ export function TreatmentFormModal({
               </div>
             )}
           </div>
-          <DialogFooter className="gap-3">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => handleReminderConfirm(false)}
               className="rounded-xl border-slate-200 font-bold h-11 flex-1"
               disabled={mutation.isPending}
             >
-              Hayır, Sadece Kaydet
+              Sadece Kaydet
             </Button>
+
             <Button
               onClick={() => handleReminderConfirm(true)}
               className="rounded-xl font-bold h-11 flex-1 shadow-lg shadow-primary/20"
               disabled={mutation.isPending}
             >
               {mutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Kaydediliyor...
-                </>
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                "Evet, Hatırlatma Ekle"
+                "Hatırlatma Ekle"
               )}
             </Button>
           </DialogFooter>
