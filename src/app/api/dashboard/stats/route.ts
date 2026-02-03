@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
+import { trackError } from "@/lib/error-tracking";
 
 export async function GET() {
   try {
@@ -181,8 +182,36 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Dashboard stats error:", error);
+
+    // Track error to database and send email
+    await trackError({
+      code: "DASHBOARD_STATS_ERROR",
+      message:
+        error instanceof Error ? error.message : "Dashboard stats failed",
+      severity: "HIGH",
+      component: "DashboardAPI",
+      function: "GET /api/dashboard/stats",
+      stack: error instanceof Error ? error.stack : undefined,
+      requestPath: "/api/dashboard/stats",
+      requestMethod: "GET",
+      notifyAdmin: true,
+    });
+
     return NextResponse.json(
-      { error: "İstatistikler yüklenemedi" },
+      {
+        error: "İstatistikler yüklenemedi",
+        summary: {
+          todaySales: 0,
+          totalCustomers: 0,
+          totalAnimals: 0,
+          pendingPayments: 0,
+          criticalStock: 0,
+        },
+        todayAppointments: [],
+        upcomingVaccines: [],
+        pendingPaymentsList: [],
+        lowStockItems: [],
+      },
       { status: 500 },
     );
   }
