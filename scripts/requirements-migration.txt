@@ -1,0 +1,13 @@
+# Customer Contact Migration Script Requirements
+# Install with: pip install -r requirements-migration.txt
+
+# Database drivers
+pyodbc>=5.0.0              # Microsoft Access (MDB) driver
+psycopg2-binary>=2.9.9     # PostgreSQL driver
+
+# Configuration
+python-dotenv>=1.0.0       # Environment variable management
+
+# Fuzzy matching
+fuzzywuzzy>=0.18.0         # Fuzzy string matching
+python-Levenshtein>=0.23.0 # Fast string comparison (optional but recommended)

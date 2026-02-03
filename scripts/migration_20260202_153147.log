@@ -1,0 +1,33 @@
+2026-02-02 15:31:47 - INFO - 🚀 Starting customer contact data migration...
+2026-02-02 15:31:47 - INFO - Mode: DRY-RUN
+2026-02-02 15:31:47 - ERROR - ❌ DATABASE_URL not found in .env file
+2026-02-02 15:31:47 - INFO - 
+======================================================================
+2026-02-02 15:31:47 - INFO - 📊 MIGRATION SUMMARY
+2026-02-02 15:31:47 - INFO - ======================================================================
+2026-02-02 15:31:47 - INFO - 
+🔧 Configuration:
+2026-02-02 15:31:47 - INFO -   Mode: DRY-RUN (Test Mode)
+2026-02-02 15:31:47 - INFO -   Match Threshold: 85%
+2026-02-02 15:31:47 - INFO -   Conflict Strategy: merge
+2026-02-02 15:31:47 - INFO -   MDB Path: D:\VTCLN\pm.mdb
+2026-02-02 15:31:47 - INFO - 
+📈 Statistics:
+2026-02-02 15:31:47 - INFO -   MDB Customers: 0
+2026-02-02 15:31:47 - INFO -   PostgreSQL Customers: 0
+2026-02-02 15:31:47 - INFO -   Matched: 0
+2026-02-02 15:31:47 - INFO -   Unmatched: 0
+2026-02-02 15:31:47 - INFO -   Updated: 0
+2026-02-02 15:31:47 - INFO -   Skipped: 0
+2026-02-02 15:31:47 - INFO -   Failed: 0
+2026-02-02 15:31:47 - INFO - 
+📝 Field Updates:
+2026-02-02 15:31:47 - INFO -   Phone: 0
+2026-02-02 15:31:47 - INFO -   Address: 0
+2026-02-02 15:31:47 - INFO -   City: 0
+2026-02-02 15:31:47 - INFO -   District: 0
+2026-02-02 15:31:47 - INFO -   Tax Info: 0
+2026-02-02 15:31:47 - INFO - 
+✅ Success Rate: 0.0%
+2026-02-02 15:31:47 - INFO - ======================================================================
+

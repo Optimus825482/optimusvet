@@ -1,0 +1,67 @@
+2026-02-02 15:33:21 - INFO - 🚀 Starting customer contact data migration...
+2026-02-02 15:33:21 - INFO - Mode: DRY-RUN
+2026-02-02 15:33:21 - INFO - ✅ Loaded .env from: ../.env
+2026-02-02 15:33:22 - INFO - ✅ Connected to MDB: D:\VTCLN\pm.mdb
+2026-02-02 15:33:22 - INFO - ✅ Connected to PostgreSQL
+2026-02-02 15:33:22 - INFO - 📥 Extracting customers from MDB...
+2026-02-02 15:33:22 - INFO - ✅ Extracted 2315 customers from MDB
+2026-02-02 15:33:22 - INFO - 📥 Extracting customers from PostgreSQL...
+2026-02-02 15:33:22 - INFO - ✅ Extracted 2317 customers from PostgreSQL
+2026-02-02 15:33:22 - INFO - 
+🔄 Processing 2315 customers...
+2026-02-02 15:33:22 - INFO - Progress: 100/2315 (4.3%)
+2026-02-02 15:33:22 - INFO - Progress: 200/2315 (8.6%)
+2026-02-02 15:33:22 - INFO - Progress: 300/2315 (13.0%)
+2026-02-02 15:33:22 - INFO - Progress: 400/2315 (17.3%)
+2026-02-02 15:33:22 - INFO - Progress: 500/2315 (21.6%)
+2026-02-02 15:33:22 - INFO - Progress: 600/2315 (25.9%)
+2026-02-02 15:33:22 - INFO - Progress: 700/2315 (30.2%)
+2026-02-02 15:33:22 - INFO - Progress: 800/2315 (34.6%)
+2026-02-02 15:33:22 - INFO - Progress: 900/2315 (38.9%)
+2026-02-02 15:33:22 - INFO - Progress: 1000/2315 (43.2%)
+2026-02-02 15:33:22 - INFO - Progress: 1100/2315 (47.5%)
+2026-02-02 15:33:22 - INFO - Progress: 1200/2315 (51.8%)
+2026-02-02 15:33:22 - INFO - Progress: 1300/2315 (56.2%)
+2026-02-02 15:33:22 - INFO - Progress: 1400/2315 (60.5%)
+2026-02-02 15:33:22 - INFO - Progress: 1500/2315 (64.8%)
+2026-02-02 15:33:22 - INFO - Progress: 1600/2315 (69.1%)
+2026-02-02 15:33:22 - INFO - Progress: 1700/2315 (73.4%)
+2026-02-02 15:33:22 - INFO - Progress: 1800/2315 (77.8%)
+2026-02-02 15:33:22 - INFO - Progress: 1900/2315 (82.1%)
+2026-02-02 15:33:22 - INFO - Progress: 2000/2315 (86.4%)
+2026-02-02 15:33:22 - INFO - Progress: 2100/2315 (90.7%)
+2026-02-02 15:33:22 - INFO - Progress: 2200/2315 (95.0%)
+2026-02-02 15:33:22 - INFO - Progress: 2300/2315 (99.4%)
+2026-02-02 15:33:22 - INFO - ℹ️  Dry-run mode - no changes committed
+2026-02-02 15:33:22 - INFO - 🔌 Closed PostgreSQL connection
+2026-02-02 15:33:23 - INFO - 🔌 Closed MDB connection
+2026-02-02 15:33:23 - INFO - 
+======================================================================
+2026-02-02 15:33:23 - INFO - 📊 MIGRATION SUMMARY
+2026-02-02 15:33:23 - INFO - ======================================================================
+2026-02-02 15:33:23 - INFO - 
+🔧 Configuration:
+2026-02-02 15:33:23 - INFO -   Mode: DRY-RUN (Test Mode)
+2026-02-02 15:33:23 - INFO -   Match Threshold: 85%
+2026-02-02 15:33:23 - INFO -   Conflict Strategy: merge
+2026-02-02 15:33:23 - INFO -   MDB Path: D:\VTCLN\pm.mdb
+2026-02-02 15:33:23 - INFO - 
+📈 Statistics:
+2026-02-02 15:33:23 - INFO -   MDB Customers: 2315
+2026-02-02 15:33:23 - INFO -   PostgreSQL Customers: 2317
+2026-02-02 15:33:23 - INFO -   Matched: 2315
+2026-02-02 15:33:23 - INFO -   Unmatched: 0
+2026-02-02 15:33:23 - INFO -   Updated: 2311
+2026-02-02 15:33:23 - INFO -   Skipped: 4
+2026-02-02 15:33:23 - INFO -   Failed: 0
+2026-02-02 15:33:23 - INFO - 
+📝 Field Updates:
+2026-02-02 15:33:23 - INFO -   Phone: 2136
+2026-02-02 15:33:23 - INFO -   Address: 2154
+2026-02-02 15:33:23 - INFO -   City: 2242
+2026-02-02 15:33:23 - INFO -   District: 2242
+2026-02-02 15:33:23 - INFO -   Tax Info: 3
+2026-02-02 15:33:23 - INFO - 
+✅ Success Rate: 99.8%
+2026-02-02 15:33:23 - INFO - ======================================================================
+

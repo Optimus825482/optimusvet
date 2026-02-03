@@ -7,21 +7,22 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  name          String?
-  email         String        @unique
-  emailVerified DateTime?
-  password      String?
-  image         String?
-  role          UserRole      @default(USER)
-  active        Boolean       @default(true)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  accounts      Account[]
-  reminders     Reminder[]
-  sessions      Session[]
-  transactions  Transaction[]
-  collections   Collection[]
+  id                 String        @id @default(cuid())
+  name               String?
+  email              String        @unique
+  emailVerified      DateTime?
+  password           String?
+  image              String?
+  role               UserRole      @default(USER)
+  active             Boolean       @default(true)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  accounts           Account[]
+  reminders          Reminder[]
+  dismissedReminders Reminder[]    @relation("DismissedReminders")
+  sessions           Session[]
+  transactions       Transaction[]
+  collections        Collection[]
 
   @@map("users")
 }
@@ -74,6 +75,10 @@ model Customer {
   address      String?
   city         String?
   district     String?
+  neighborhood String?
+  village      String?
+  postalCode   String?
+  country      String?       @default("Türkiye")
   taxNumber    String?
   taxOffice    String?
   image        String?
@@ -324,13 +329,21 @@ model Reminder {
   customerId  String?
   supplierId  String?
   animalId    String?
+  treatmentId String?
+  illnessId   String?
   isRead      Boolean      @default(false)
   isCompleted Boolean      @default(false)
+  isActive    Boolean      @default(true)
+  dismissedAt DateTime?
+  dismissedBy String?
   createdAt   DateTime     @default(now())
   animal      Animal?      @relation(fields: [animalId], references: [id])
   customer    Customer?    @relation(fields: [customerId], references: [id])
   supplier    Supplier?    @relation(fields: [supplierId], references: [id])
   user        User         @relation(fields: [userId], references: [id])
+  treatment   Treatment?   @relation(fields: [treatmentId], references: [id])
+  illness     Illness?     @relation(fields: [illnessId], references: [id])
+  dismissedByUser User?    @relation("DismissedReminders", fields: [dismissedBy], references: [id])
 
   @@map("reminders")
 }
@@ -500,6 +513,7 @@ model Illness {
   updatedAt     DateTime        @updatedAt
   animal        Animal          @relation(fields: [animalId], references: [id], onDelete: Cascade)
   treatments    Treatment[]
+  reminders     Reminder[]
 
   @@map("illnesses")
   @@index([animalId])
@@ -526,6 +540,7 @@ model Treatment {
   updatedAt       DateTime        @updatedAt
   illness         Illness         @relation(fields: [illnessId], references: [id], onDelete: Cascade)
   product         Product?        @relation(fields: [productId], references: [id])
+  reminders       Reminder[]
 
   @@map("treatments")
   @@index([illnessId])
@@ -629,4 +644,67 @@ enum AuditAction {
   UPDATE
   DELETE
   READ
+}
+
+// =====================================================
+// ERROR LOG SYSTEM (COMPREHENSIVE ERROR TRACKING)
+// =====================================================
+
+model ErrorLog {
+  id            String        @id @default(cuid())
+  
+  // Error Details
+  code          String        // ERROR_CODE (e.g., DATABASE_ERROR, VALIDATION_ERROR)
+  message       String        // Error message
+  stack         String?       @db.Text // Stack trace
+  severity      ErrorSeverity @default(MEDIUM)
+  
+  // Context
+  context       Json?         // Additional context data
+  component     String?       // Which component/module threw the error
+  function      String?       // Which function threw the error
+  
+  // User Context
+  userId        String?
+  userEmail     String?
+  userName      String?
+  
+  // Request Context
+  requestPath   String?
+  requestMethod String?       // GET, POST, PUT, DELETE
+  requestBody   Json?         // Request body (sanitized)
+  requestQuery  Json?         // Query parameters
+  ipAddress     String?
+  userAgent     String?
+  
+  // Error Classification
+  isOperational Boolean       @default(true) // Operational vs Programming error
+  isResolved    Boolean       @default(false)
+  resolvedAt    DateTime?
+  resolvedBy    String?
+  resolution    String?       @db.Text
+  
+  // Notification
+  emailSent     Boolean       @default(false)
+  emailSentAt   DateTime?
+  notifyAdmin   Boolean       @default(false)
+  
+  // Metadata
+  createdAt     DateTime      @default(now())
+  
+  // Indexes for performance
+  @@index([code])
+  @@index([severity])
+  @@index([createdAt])
+  @@index([isResolved])
+  @@index([userId])
+  @@index([code, severity, createdAt])
+  @@map("error_logs")
+}
+
+enum ErrorSeverity {
+  LOW       // Minor issues, doesn't affect functionality
+  MEDIUM    // Moderate issues, some features affected
+  HIGH      // Serious issues, major features affected
+  CRITICAL  // System-breaking issues, immediate attention required
 }

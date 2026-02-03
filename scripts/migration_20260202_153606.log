@@ -1,0 +1,15 @@
+2026-02-02 15:36:06 - INFO - 🚀 Starting customer contact data migration...
+2026-02-02 15:36:06 - INFO - Mode: LIVE
+2026-02-02 15:36:06 - INFO - ✅ Loaded .env from: ../.env
+2026-02-02 15:36:06 - INFO - ✅ Connected to MDB: D:\VTCLN\pm.mdb
+2026-02-02 15:36:06 - INFO - ✅ Connected to PostgreSQL
+2026-02-02 15:36:06 - INFO - 📥 Extracting customers from MDB...
+2026-02-02 15:36:06 - INFO - ✅ Extracted 2315 customers from MDB
+2026-02-02 15:36:06 - INFO - 📥 Extracting customers from PostgreSQL...
+2026-02-02 15:36:07 - INFO - ✅ Extracted 2317 customers from PostgreSQL
+2026-02-02 15:36:07 - INFO - 
+🔄 Processing 2315 customers...
+2026-02-02 15:36:15 - INFO - 🔌 Closed PostgreSQL connection
+2026-02-02 15:36:15 - INFO - 🔌 Closed MDB connection
+2026-02-02 15:36:15 - WARNING - 
+⚠️  Migration interrupted by user
