@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateCode } from "@/lib/utils";
 import { auth } from "@/lib/auth";
+import { withAuditContext } from "@/lib/audit-api-helper";
+import { auditCreate } from "@/lib/audit";
+import { getAuditContext } from "@/lib/prisma-audit-middleware";
 
 // GET /api/suppliers - List suppliers
 export async function GET(request: NextRequest) {
@@ -60,43 +63,17 @@ export async function GET(request: NextRequest) {
 
 // POST /api/suppliers - Create supplier
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withAuditContext(request, async () => {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+      }
 
-    const body = await request.json();
-    const {
-      name,
-      phone,
-      email,
-      address,
-      city,
-      district,
-      taxNumber,
-      taxOffice,
-      contactName,
-      balance,
-      notes,
-    } = body;
-
-    if (!name) {
-      return NextResponse.json(
-        { error: "Tedarikçi adı zorunludur" },
-        { status: 400 },
-      );
-    }
-
-    // Generate unique code
-    const count = await prisma.supplier.count();
-    const code = `TDR${String(count + 1).padStart(3, "0")}`;
-
-    const supplier = await prisma.supplier.create({
-      data: {
-        code,
+      const body = await request.json();
+      const {
         name,
-        phone: phone || "",
+        phone,
         email,
         address,
         city,
@@ -104,17 +81,53 @@ export async function POST(request: NextRequest) {
         taxNumber,
         taxOffice,
         contactName,
-        balance: parseFloat(balance) || 0,
+        balance,
         notes,
-      },
-    });
+      } = body;
 
-    return NextResponse.json(supplier, { status: 201 });
-  } catch (error) {
-    console.error("Supplier POST error:", error);
-    return NextResponse.json(
-      { error: "Tedarikçi eklenirken hata oluştu" },
-      { status: 500 },
-    );
-  }
+      if (!name) {
+        return NextResponse.json(
+          { error: "Tedarikçi adı zorunludur" },
+          { status: 400 },
+        );
+      }
+
+      // Generate unique code
+      const count = await prisma.supplier.count();
+      const code = `TDR${String(count + 1).padStart(3, "0")}`;
+
+      const supplier = await prisma.supplier.create({
+        data: {
+          code,
+          name,
+          phone: phone || "",
+          email,
+          address,
+          city,
+          district,
+          taxNumber,
+          taxOffice,
+          contactName,
+          balance: parseFloat(balance) || 0,
+          notes,
+        },
+      });
+
+      // ✅ Audit log
+      await auditCreate(
+        "suppliers",
+        supplier.id,
+        supplier,
+        getAuditContext(),
+      ).catch(console.error);
+
+      return NextResponse.json(supplier, { status: 201 });
+    } catch (error) {
+      console.error("Supplier POST error:", error);
+      return NextResponse.json(
+        { error: "Tedarikçi eklenirken hata oluştu" },
+        { status: 500 },
+      );
+    }
+  });
 }

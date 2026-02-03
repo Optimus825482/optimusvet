@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { animalSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { withAuditContext } from "@/lib/audit-api-helper";
+import { auditCreate } from "@/lib/audit";
+import { getAuditContext } from "@/lib/prisma-audit-middleware";
 
 // GET - Hayvan listesi
 export async function GET(request: NextRequest) {
@@ -73,68 +76,77 @@ export async function GET(request: NextRequest) {
 
 // POST - Yeni hayvan ekle
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withAuditContext(request, async () => {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+      }
 
-    const body = await request.json();
+      const body = await request.json();
 
-    console.log("Gelen hayvan verisi:", body);
+      console.log("Gelen hayvan verisi:", body);
 
-    // Tarihleri Date objesine çevir
-    const processedData = {
-      ...body,
-      birthDate: body.birthDate ? new Date(body.birthDate) : null,
-      weight: body.weight ? Number(body.weight) : null,
-    };
+      // Tarihleri Date objesine çevir
+      const processedData = {
+        ...body,
+        birthDate: body.birthDate ? new Date(body.birthDate) : null,
+        weight: body.weight ? Number(body.weight) : null,
+      };
 
-    const validatedData = animalSchema.parse(processedData);
+      const validatedData = animalSchema.parse(processedData);
 
-    console.log("Validate edilmiş veri:", validatedData);
+      console.log("Validate edilmiş veri:", validatedData);
 
-    const animal = await prisma.animal.create({
-      data: {
-        customerId: validatedData.customerId,
-        name: validatedData.name,
-        species: validatedData.species,
-        breed: validatedData.breed || null,
-        gender: validatedData.gender || null,
-        birthDate: validatedData.birthDate || null,
-        weight: validatedData.weight || null,
-        color: validatedData.color || null,
-        chipNumber: validatedData.chipNumber || null,
-        earTag: validatedData.earTag || null,
-        notes: validatedData.notes || null,
-      },
-      include: {
-        customer: true,
-      },
-    });
+      const animal = await prisma.animal.create({
+        data: {
+          customerId: validatedData.customerId,
+          name: validatedData.name,
+          species: validatedData.species,
+          breed: validatedData.breed || null,
+          gender: validatedData.gender || null,
+          birthDate: validatedData.birthDate || null,
+          weight: validatedData.weight || null,
+          color: validatedData.color || null,
+          chipNumber: validatedData.chipNumber || null,
+          earTag: validatedData.earTag || null,
+          notes: validatedData.notes || null,
+        },
+        include: {
+          customer: true,
+        },
+      });
 
-    console.log("Oluşturulan hayvan:", animal);
+      console.log("Oluşturulan hayvan:", animal);
 
-    return NextResponse.json(animal, { status: 201 });
-  } catch (error: unknown) {
-    console.error("Animal POST error:", error);
+      // ✅ Audit log
+      await auditCreate("animals", animal.id, animal, getAuditContext()).catch(
+        (err) => {
+          console.error("[AUDIT ERROR]", err);
+        },
+      );
 
-    if (error && typeof error === "object" && "errors" in error) {
+      return NextResponse.json(animal, { status: 201 });
+    } catch (error: unknown) {
+      console.error("Animal POST error:", error);
+
+      if (error && typeof error === "object" && "errors" in error) {
+        return NextResponse.json(
+          {
+            error: "Geçersiz veri",
+            details: (error as { errors: unknown }).errors,
+          },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json(
         {
-          error: "Geçersiz veri",
-          details: (error as { errors: unknown }).errors,
+          error: "Hayvan eklenirken hata oluştu",
+          details: error instanceof Error ? error.message : "Bilinmeyen hata",
         },
-        { status: 400 },
+        { status: 500 },
       );
     }
-
-    return NextResponse.json(
-      {
-        error: "Hayvan eklenirken hata oluştu",
-        details: error instanceof Error ? error.message : "Bilinmeyen hata",
-      },
-      { status: 500 },
-    );
-  }
+  });
 }

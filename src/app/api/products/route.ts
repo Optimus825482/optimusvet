@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { productSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { withAuditContext } from "@/lib/audit-api-helper";
+import { auditCreate } from "@/lib/audit";
+import { getAuditContext } from "@/lib/prisma-audit-middleware";
 
 // GET - Ürün listesi
 export async function GET(request: NextRequest) {
@@ -116,59 +119,69 @@ export async function GET(request: NextRequest) {
 
 // POST - Yeni ürün ekle
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withAuditContext(request, async () => {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+      }
 
-    const body = await request.json();
-    const validatedData = productSchema.parse(body);
+      const body = await request.json();
+      const validatedData = productSchema.parse(body);
 
-    // Auto-set isService if category is SERVICE
-    if (validatedData.productCategory === "SERVICE") {
-      validatedData.isService = true;
-    }
+      // Auto-set isService if category is SERVICE
+      if (validatedData.productCategory === "SERVICE") {
+        validatedData.isService = true;
+      }
 
-    // Generate code
-    const lastProduct = await prisma.product.findFirst({
-      orderBy: { code: "desc" },
-      select: { code: true },
-    });
-    const lastNumber = lastProduct
-      ? parseInt(lastProduct.code.split("-")[1])
-      : 0;
-    const newCode = `URN-${(lastNumber + 1).toString().padStart(4, "0")}`;
+      // Generate code
+      const lastProduct = await prisma.product.findFirst({
+        orderBy: { code: "desc" },
+        select: { code: true },
+      });
+      const lastNumber = lastProduct
+        ? parseInt(lastProduct.code.split("-")[1])
+        : 0;
+      const newCode = `URN-${(lastNumber + 1).toString().padStart(4, "0")}`;
 
-    const product = await prisma.product.create({
-      data: {
-        ...validatedData,
-        code: newCode,
-        expiryDate: validatedData.expiryDate || null,
-        image: validatedData.image || null,
-      },
-      include: {
-        category: true,
-      },
-    });
-
-    return NextResponse.json(product, { status: 201 });
-  } catch (error: unknown) {
-    console.error("Product POST error:", error);
-
-    if (error && typeof error === "object" && "errors" in error) {
-      return NextResponse.json(
-        {
-          error: "Geçersiz veri",
-          details: (error as { errors: unknown }).errors,
+      const product = await prisma.product.create({
+        data: {
+          ...validatedData,
+          code: newCode,
+          expiryDate: validatedData.expiryDate || null,
+          image: validatedData.image || null,
         },
-        { status: 400 },
+        include: {
+          category: true,
+        },
+      });
+
+      // ✅ Audit log
+      await auditCreate(
+        "products",
+        product.id,
+        product,
+        getAuditContext(),
+      ).catch(console.error);
+
+      return NextResponse.json(product, { status: 201 });
+    } catch (error: unknown) {
+      console.error("Product POST error:", error);
+
+      if (error && typeof error === "object" && "errors" in error) {
+        return NextResponse.json(
+          {
+            error: "Geçersiz veri",
+            details: (error as { errors: unknown }).errors,
+          },
+          { status: 400 },
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Ürün eklenirken hata oluştu" },
+        { status: 500 },
       );
     }
-
-    return NextResponse.json(
-      { error: "Ürün eklenirken hata oluştu" },
-      { status: 500 },
-    );
-  }
+  });
 }
