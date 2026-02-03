@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { customerSchema } from "@/lib/validations";
 import { auth } from "@/lib/auth";
+import { withAuditContext } from "@/lib/audit-api-helper";
 
 // GET - Müşteri listesi
 export async function GET(request: NextRequest) {
@@ -59,87 +60,89 @@ export async function GET(request: NextRequest) {
 
 // POST - Yeni müşteri ekle
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withAuditContext(request, async () => {
+    try {
+      const session = await auth();
+      if (!session?.user) {
+        return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+      }
 
-    const body = await request.json();
-    const validatedData = customerSchema.parse(body);
+      const body = await request.json();
+      const validatedData = customerSchema.parse(body);
 
-    // Generate unique code - find the actual maximum number
-    let customer;
-    let maxRetries = 10;
-    let attempt = 0;
+      // Generate unique code - find the actual maximum number
+      let customer;
+      let maxRetries = 10;
+      let attempt = 0;
 
-    while (attempt < maxRetries) {
-      try {
-        // Get ALL customer codes and find the maximum number
-        const allCustomers = await prisma.customer.findMany({
-          where: {
-            code: { startsWith: "MUS-" },
-          },
-          select: { code: true },
-        });
+      while (attempt < maxRetries) {
+        try {
+          // Get ALL customer codes and find the maximum number
+          const allCustomers = await prisma.customer.findMany({
+            where: {
+              code: { startsWith: "MUS-" },
+            },
+            select: { code: true },
+          });
 
-        let maxNumber = 0;
-        for (const c of allCustomers) {
-          const parts = c.code.split("-");
-          if (parts[1]) {
-            const num = parseInt(parts[1], 10);
-            if (!isNaN(num) && num > maxNumber) {
-              maxNumber = num;
+          let maxNumber = 0;
+          for (const c of allCustomers) {
+            const parts = c.code.split("-");
+            if (parts[1]) {
+              const num = parseInt(parts[1], 10);
+              if (!isNaN(num) && num > maxNumber) {
+                maxNumber = num;
+              }
             }
           }
-        }
 
-        // Add attempt offset to ensure uniqueness on retry
-        const nextNumber = maxNumber + 1 + attempt;
-        const newCode = `MUS-${nextNumber.toString().padStart(4, "0")}`;
+          // Add attempt offset to ensure uniqueness on retry
+          const nextNumber = maxNumber + 1 + attempt;
+          const newCode = `MUS-${nextNumber.toString().padStart(4, "0")}`;
 
-        customer = await prisma.customer.create({
-          data: {
-            ...validatedData,
-            code: newCode,
-            email: validatedData.email || null,
-          },
-        });
+          customer = await prisma.customer.create({
+            data: {
+              ...validatedData,
+              code: newCode,
+              email: validatedData.email || null,
+            },
+          });
 
-        break; // Success, exit loop
-      } catch (createError: any) {
-        if (createError.code === "P2002") {
-          // Unique constraint error, retry with incremented attempt
-          attempt++;
-          if (attempt >= maxRetries) {
-            throw new Error(
-              "Müşteri kodu oluşturulamadı. Lütfen tekrar deneyin.",
-            );
+          break; // Success, exit loop
+        } catch (createError: any) {
+          if (createError.code === "P2002") {
+            // Unique constraint error, retry with incremented attempt
+            attempt++;
+            if (attempt >= maxRetries) {
+              throw new Error(
+                "Müşteri kodu oluşturulamadı. Lütfen tekrar deneyin.",
+              );
+            }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            continue;
           }
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          continue;
+          throw createError; // Re-throw if not retryable
         }
-        throw createError; // Re-throw if not retryable
       }
-    }
 
-    return NextResponse.json(customer, { status: 201 });
-  } catch (error: unknown) {
-    console.error("Customer POST error:", error);
+      return NextResponse.json(customer, { status: 201 });
+    } catch (error: unknown) {
+      console.error("Customer POST error:", error);
 
-    if (error && typeof error === "object" && "errors" in error) {
+      if (error && typeof error === "object" && "errors" in error) {
+        return NextResponse.json(
+          {
+            error: "Geçersiz veri",
+            details: (error as { errors: unknown }).errors,
+          },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json(
-        {
-          error: "Geçersiz veri",
-          details: (error as { errors: unknown }).errors,
-        },
-        { status: 400 },
+        { error: "Müşteri eklenirken hata oluştu" },
+        { status: 500 },
       );
     }
-
-    return NextResponse.json(
-      { error: "Müşteri eklenirken hata oluştu" },
-      { status: 500 },
-    );
-  }
+  });
 }

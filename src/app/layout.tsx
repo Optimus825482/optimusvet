@@ -5,6 +5,13 @@ import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import PWASetup from "@/components/pwa-setup";
+import { initializeGlobalErrorHandler } from "@/lib/global-error-handler";
+
+// ✅ GLOBAL ERROR HANDLER AKTIVE ET
+if (typeof window === "undefined") {
+  // Server-side only
+  initializeGlobalErrorHandler();
+}
 
 const figtree = Figtree({
   subsets: ["latin"],

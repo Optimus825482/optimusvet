@@ -2,9 +2,27 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { trackError } from "@/lib/error-tracking";
+import { auth } from "@/lib/auth";
+import {
+  setAuditContext,
+  clearAuditContext,
+} from "@/lib/prisma-audit-middleware";
 
 export async function GET() {
   try {
+    // ✅ AUDIT CONTEXT SET ET
+    const session = await auth();
+    if (session?.user) {
+      setAuditContext({
+        userId: session.user.id,
+        userName: session.user.name,
+        userEmail: session.user.email,
+        ipAddress: "unknown",
+        userAgent: "unknown",
+        requestPath: "/api/dashboard/stats",
+        requestMethod: "GET",
+      });
+    }
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
@@ -181,6 +199,9 @@ export async function GET() {
       })),
     });
   } catch (error) {
+    // ✅ AUDIT CONTEXT TEMIZLE
+    clearAuditContext();
+
     console.error("Dashboard stats error:", error);
 
     // Track error to database and send email

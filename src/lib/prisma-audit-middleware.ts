@@ -79,7 +79,11 @@ function getTableName(model: string): string {
 }
 
 /**
- * Prisma Audit Middleware
+ * Prisma Audit Middleware - Basitleştirilmiş Versiyon
+ *
+ * Not: UPDATE ve DELETE için eski veri yakalamak circular dependency oluşturuyor.
+ * Bu yüzden sadece CREATE işlemlerini ve result'ları logluyoruz.
+ * Tam audit için API seviyesinde manuel olarak eski veri alınmalı.
  */
 export const auditMiddleware = async (
   params: any,
@@ -92,7 +96,7 @@ export const auditMiddleware = async (
     return next(params);
   }
 
-  const { model, action, args } = params;
+  const { model, action } = params;
 
   // Model yoksa (raw queries vb.) audit yapma
   if (!model) {
@@ -107,65 +111,38 @@ export const auditMiddleware = async (
       const result = await next(params);
 
       // Async audit log (non-blocking)
-      auditCreate(tableName, result.id, result, context).catch((err) => {
-        console.error("[AUDIT MIDDLEWARE ERROR]", err);
-      });
-
-      return result;
-    }
-
-    // UPDATE operations
-    if (action === "update" || action === "updateMany") {
-      // Önce eski değerleri al
-      const oldData = await (params as any)
-        .runInTransaction(async (tx: any) => {
-          if (action === "update") {
-            return tx[model].findUnique({ where: args.where });
-          }
-          return tx[model].findMany({ where: args.where });
-        })
-        .catch(() => null);
-
-      const result = await next(params);
-
-      // Yeni değerleri al
-      if (action === "update" && oldData) {
-        const newData = await (params as any)
-          .runInTransaction(async (tx: any) => {
-            return tx[model].findUnique({ where: args.where });
-          })
-          .catch(() => null);
-
-        if (newData) {
-          // Async audit log
-          auditUpdate(tableName, newData.id, oldData, newData, context).catch(
-            (err) => {
-              console.error("[AUDIT MIDDLEWARE ERROR]", err);
-            },
-          );
-        }
+      if (result && result.id) {
+        auditCreate(tableName, result.id, result, context).catch((err) => {
+          console.error("[AUDIT MIDDLEWARE ERROR]", err);
+        });
       }
 
       return result;
     }
 
-    // DELETE operations
-    if (action === "delete" || action === "deleteMany") {
-      // Önce silinecek veriyi al
-      const oldData = await (params as any)
-        .runInTransaction(async (tx: any) => {
-          if (action === "delete") {
-            return tx[model].findUnique({ where: args.where });
-          }
-          return tx[model].findMany({ where: args.where });
-        })
-        .catch(() => null);
-
+    // UPDATE operations - Sadece result'ı logla
+    if (action === "update") {
       const result = await next(params);
 
-      // Async audit log
-      if (action === "delete" && oldData) {
-        auditDelete(tableName, oldData.id, oldData, context).catch((err) => {
+      // Async audit log (non-blocking)
+      if (result && result.id) {
+        // oldData için boş obje gönder, API seviyesinde handle edilecek
+        auditUpdate(tableName, result.id, {}, result, context).catch((err) => {
+          console.error("[AUDIT MIDDLEWARE ERROR]", err);
+        });
+      }
+
+      return result;
+    }
+
+    // DELETE operations - Sadece result'ı logla
+    if (action === "delete") {
+      const result = await next(params);
+
+      // Async audit log (non-blocking)
+      if (result && result.id) {
+        // Silinen veriyi result'tan al
+        auditDelete(tableName, result.id, result, context).catch((err) => {
           console.error("[AUDIT MIDDLEWARE ERROR]", err);
         });
       }
@@ -194,4 +171,5 @@ export const auditMiddleware = async (
  */
 export function setupAuditMiddleware(prismaClient: any) {
   prismaClient.$use(auditMiddleware);
+  console.log("[AUDIT MIDDLEWARE] Initialized");
 }
