@@ -51,6 +51,7 @@ const actionOptions: { value: AuditAction; label: string }[] = [
   { value: "UPDATE", label: "Güncelleme" },
   { value: "DELETE", label: "Silme" },
   { value: "READ", label: "Okuma" },
+  { value: "LOGIN", label: "Giriş" },
 ];
 
 export function AuditLogFilters({

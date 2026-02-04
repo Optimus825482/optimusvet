@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackError, getErrorStats } from "@/lib/error-tracking";
 import { sendTestEmail, verifyEmailConfig } from "@/lib/email";
+import { withApiHandler, ApiError } from "@/lib/api-route-handler";
 
 // =====================================================
 // TEST ERROR TRACKING
@@ -29,6 +30,32 @@ export async function POST(request: NextRequest) {
 
       case "get-stats":
         return await getStats();
+
+      case "simulate-500":
+        // Simulate a 500 error through the new API handler (no auth for testing)
+        return withApiHandler(
+          request,
+          async () => {
+            throw new Error(
+              "SIMULATED: Bu bir test 500 hatasıdır - Email gönderilmeli",
+            );
+          },
+          { component: "TestAPI", requireAuth: false },
+        );
+
+      case "simulate-api-error":
+        // Simulate an ApiError (no auth for testing)
+        return withApiHandler(
+          request,
+          async () => {
+            throw new ApiError(
+              "SIMULATED: Custom API Error",
+              500,
+              "SIMULATED_ERROR",
+            );
+          },
+          { component: "TestAPI", requireAuth: false },
+        );
 
       default:
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });

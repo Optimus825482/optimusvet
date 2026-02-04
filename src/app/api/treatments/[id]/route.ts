@@ -1,67 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { updateTreatmentSchema } from "@/lib/validations/treatment";
 import { ZodError } from "zod";
+import { withApiHandler, ApiError } from "@/lib/api-route-handler";
+import { auditUpdate, auditDelete } from "@/lib/audit";
 
 // GET single treatment
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const { id } = await params;
+  return withApiHandler(
+    request,
+    async (ctx) => {
+      const { id } = await params;
 
-    const treatment = await prisma.treatment.findUnique({
-      where: { id },
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            unit: true,
-            salePrice: true,
-            stock: true,
+      const treatment = await prisma.treatment.findUnique({
+        where: { id },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              unit: true,
+              salePrice: true,
+              stock: true,
+            },
           },
-        },
-        illness: {
-          include: {
-            animal: {
-              select: {
-                id: true,
-                name: true,
-                species: true,
-                breed: true,
-                customer: {
-                  select: {
-                    id: true,
-                    name: true,
-                    phone: true,
+          illness: {
+            include: {
+              animal: {
+                select: {
+                  id: true,
+                  name: true,
+                  species: true,
+                  breed: true,
+                  customer: {
+                    select: {
+                      id: true,
+                      name: true,
+                      phone: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    if (!treatment) {
-      return NextResponse.json(
-        { error: "Tedavi kaydı bulunamadı" },
-        { status: 404 },
-      );
-    }
+      if (!treatment) {
+        throw new ApiError("Tedavi kaydı bulunamadı", 404);
+      }
 
-    return NextResponse.json(treatment);
-  } catch (error) {
-    console.error("Treatment fetch error:", error);
-    return NextResponse.json(
-      { error: "Tedavi kaydı getirilemedi" },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json(treatment);
+    },
+    { component: "TreatmentsAPI" },
+  );
 }
 
 // PATCH update treatment
@@ -69,137 +65,134 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withApiHandler(
+    request,
+    async (ctx) => {
+      const { id } = await params;
 
-    const { id } = await params;
-
-    // Verify treatment exists
-    const existingTreatment = await prisma.treatment.findUnique({
-      where: { id },
-    });
-
-    if (!existingTreatment) {
-      return NextResponse.json(
-        { error: "Tedavi kaydı bulunamadı" },
-        { status: 404 },
-      );
-    }
-
-    const body = await request.json();
-
-    // Validate input
-    const validatedData = updateTreatmentSchema.parse(body);
-
-    // If product is being changed, verify it exists
-    if (validatedData.productId) {
-      const product = await prisma.product.findUnique({
-        where: { id: validatedData.productId },
-        select: {
-          id: true,
-          name: true,
-          stock: true,
-          salePrice: true,
-        },
+      // ✅ AUDIT: Get OLD data before update
+      const oldData = await prisma.treatment.findUnique({
+        where: { id },
       });
 
-      if (!product) {
-        return NextResponse.json(
-          { error: "Seçilen ürün bulunamadı" },
-          { status: 404 },
-        );
+      if (!oldData) {
+        throw new ApiError("Tedavi kaydı bulunamadı", 404);
       }
-    }
 
-    // Update treatment
-    const treatment = await prisma.treatment.update({
-      where: { id },
-      data: {
-        ...(validatedData.productId !== undefined && {
-          productId: validatedData.productId,
-        }),
-        ...(validatedData.name && { name: validatedData.name }),
-        ...(validatedData.dosage !== undefined && {
-          dosage: validatedData.dosage,
-        }),
-        ...(validatedData.frequency !== undefined && {
-          frequency: validatedData.frequency,
-        }),
-        ...(validatedData.duration !== undefined && {
-          duration: validatedData.duration,
-        }),
-        ...(validatedData.startDate && {
-          startDate: new Date(validatedData.startDate),
-        }),
-        ...(validatedData.endDate !== undefined && {
-          endDate: validatedData.endDate
-            ? new Date(validatedData.endDate)
-            : null,
-        }),
-        ...(validatedData.applicationMethod !== undefined && {
-          applicationMethod: validatedData.applicationMethod,
-        }),
-        ...(validatedData.notes !== undefined && {
-          notes: validatedData.notes,
-        }),
-        ...(validatedData.cost !== undefined && {
-          cost: validatedData.cost,
-        }),
-        ...(validatedData.status && { status: validatedData.status }),
-        ...(validatedData.nextCheckupDate !== undefined && {
-          nextCheckupDate: validatedData.nextCheckupDate
-            ? new Date(validatedData.nextCheckupDate)
-            : null,
-        }),
-      },
-      include: {
-        product: {
+      const body = await request.json();
+
+      // Validate input
+      let validatedData;
+      try {
+        validatedData = updateTreatmentSchema.parse(body);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          throw new ApiError(
+            `Geçersiz veri: ${error.issues.map((i) => i.message).join(", ")}`,
+            400,
+            "VALIDATION_ERROR",
+          );
+        }
+        throw error;
+      }
+
+      // If product is being changed, verify it exists
+      if (validatedData.productId) {
+        const product = await prisma.product.findUnique({
+          where: { id: validatedData.productId },
           select: {
             id: true,
             name: true,
-            code: true,
-            unit: true,
+            stock: true,
             salePrice: true,
           },
+        });
+
+        if (!product) {
+          throw new ApiError("Seçilen ürün bulunamadı", 404);
+        }
+      }
+
+      // Update treatment
+      const treatment = await prisma.treatment.update({
+        where: { id },
+        data: {
+          ...(validatedData.productId !== undefined && {
+            productId: validatedData.productId,
+          }),
+          ...(validatedData.name && { name: validatedData.name }),
+          ...(validatedData.dosage !== undefined && {
+            dosage: validatedData.dosage,
+          }),
+          ...(validatedData.frequency !== undefined && {
+            frequency: validatedData.frequency,
+          }),
+          ...(validatedData.duration !== undefined && {
+            duration: validatedData.duration,
+          }),
+          ...(validatedData.startDate && {
+            startDate: new Date(validatedData.startDate),
+          }),
+          ...(validatedData.endDate !== undefined && {
+            endDate: validatedData.endDate
+              ? new Date(validatedData.endDate)
+              : null,
+          }),
+          ...(validatedData.applicationMethod !== undefined && {
+            applicationMethod: validatedData.applicationMethod,
+          }),
+          ...(validatedData.notes !== undefined && {
+            notes: validatedData.notes,
+          }),
+          ...(validatedData.cost !== undefined && {
+            cost: validatedData.cost,
+          }),
+          ...(validatedData.status && { status: validatedData.status }),
+          ...(validatedData.nextCheckupDate !== undefined && {
+            nextCheckupDate: validatedData.nextCheckupDate
+              ? new Date(validatedData.nextCheckupDate)
+              : null,
+          }),
         },
-        illness: {
-          select: {
-            id: true,
-            name: true,
-            animal: {
-              select: {
-                id: true,
-                name: true,
-                species: true,
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              unit: true,
+              salePrice: true,
+            },
+          },
+          illness: {
+            select: {
+              id: true,
+              name: true,
+              animal: {
+                select: {
+                  id: true,
+                  name: true,
+                  species: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    return NextResponse.json(treatment);
-  } catch (error) {
-    console.error("Treatment update error:", error);
+      // ✅ AUDIT: Log UPDATE with old and new data
+      await auditUpdate(
+        "treatments",
+        id,
+        oldData,
+        treatment,
+        ctx.auditContext,
+      ).catch(console.error);
 
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Geçersiz veri",
-          details: error.issues,
-        },
-        { status: 400 },
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Tedavi kaydı güncellenemedi" },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json(treatment);
+    },
+    { component: "TreatmentsAPI" },
+  );
 }
 
 // DELETE treatment
@@ -207,40 +200,35 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withApiHandler(
+    request,
+    async (ctx) => {
+      const { id } = await params;
 
-    const { id } = await params;
+      // ✅ AUDIT: Get OLD data before delete
+      const oldData = await prisma.treatment.findUnique({
+        where: { id },
+      });
 
-    // Verify treatment exists
-    const existingTreatment = await prisma.treatment.findUnique({
-      where: { id },
-    });
+      if (!oldData) {
+        throw new ApiError("Tedavi kaydı bulunamadı", 404);
+      }
 
-    if (!existingTreatment) {
-      return NextResponse.json(
-        { error: "Tedavi kaydı bulunamadı" },
-        { status: 404 },
+      // Delete treatment
+      await prisma.treatment.delete({
+        where: { id },
+      });
+
+      // ✅ AUDIT: Log DELETE with old data
+      await auditDelete("treatments", id, oldData, ctx.auditContext).catch(
+        console.error,
       );
-    }
 
-    // Delete treatment
-    await prisma.treatment.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Tedavi kaydı silindi",
-    });
-  } catch (error) {
-    console.error("Treatment delete error:", error);
-    return NextResponse.json(
-      { error: "Tedavi kaydı silinemedi" },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json({
+        success: true,
+        message: "Tedavi kaydı silindi",
+      });
+    },
+    { component: "TreatmentsAPI" },
+  );
 }

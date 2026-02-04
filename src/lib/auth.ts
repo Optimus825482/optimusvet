@@ -5,10 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
 import type { Adapter } from "next-auth/adapters";
-import {
-  setAuditContext,
-  clearAuditContext,
-} from "@/lib/prisma-audit-middleware";
+import { auditCreate } from "@/lib/audit";
 
 declare module "next-auth" {
   interface Session {
@@ -45,46 +42,56 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("E-posta ve şifre gereklidir");
         }
 
-        try {
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
-          });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email as string },
+        });
 
-          if (!user || !user.password) {
-            throw new Error("Kullanıcı bulunamadı");
-          }
-
-          const isValid = await bcrypt.compare(
-            credentials.password as string,
-            user.password,
-          );
-
-          if (!isValid) {
-            throw new Error("Şifre hatalı");
-          }
-
-          // ✅ AUDIT CONTEXT SET ET (Login işlemi için)
-          setAuditContext({
-            userId: user.id,
-            userName: user.name || undefined,
-            userEmail: user.email,
-            ipAddress: "unknown", // NextAuth'da IP almak zor, middleware'de alınabilir
-            userAgent: "unknown",
-            requestPath: "/api/auth/callback/credentials",
-            requestMethod: "POST",
-          });
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            image: user.image,
-          };
-        } finally {
-          // Context'i temizle
-          clearAuditContext();
+        if (!user || !user.password) {
+          throw new Error("Kullanıcı bulunamadı");
         }
+
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.password,
+        );
+
+        if (!isValid) {
+          throw new Error("Şifre hatalı");
+        }
+
+        // ✅ LOGIN AUDIT LOG OLUŞTUR
+        try {
+          await auditCreate(
+            "users",
+            user.id,
+            {
+              action: "LOGIN",
+              email: user.email,
+              name: user.name,
+              timestamp: new Date(),
+            },
+            {
+              userId: user.id,
+              userName: user.name || undefined,
+              userEmail: user.email,
+              ipAddress: "unknown",
+              userAgent: "unknown",
+              requestPath: "/api/auth/callback/credentials",
+              requestMethod: "POST",
+            },
+          );
+        } catch (auditError) {
+          // Audit hatası login'i engellemez
+          console.error("[LOGIN AUDIT ERROR]", auditError);
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          image: user.image,
+        };
       },
     }),
   ],

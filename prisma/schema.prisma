@@ -644,6 +644,7 @@ enum AuditAction {
   UPDATE
   DELETE
   READ
+  LOGIN
 }
 
 // =====================================================

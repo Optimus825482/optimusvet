@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { allocatePaymentToSalesInTransaction } from "@/lib/payment-allocation";
 import { randomUUID } from "crypto";
+import { withApiHandler, ApiError, parseBody } from "@/lib/api-route-handler";
+import { auditCreate } from "@/lib/audit";
 
 // GET all transactions (sales/purchases)
 export async function GET(request: NextRequest) {

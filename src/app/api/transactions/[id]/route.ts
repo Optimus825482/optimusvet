@@ -2,38 +2,41 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { recalculateCustomerSalesStatus } from "@/lib/payment-allocation";
+import { withApiHandler, ApiError } from "@/lib/api-route-handler";
+import { auditUpdate, auditDelete } from "@/lib/audit";
 
 // GET single transaction with items
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const { id } = await params;
+  return withApiHandler(
+    request,
+    async (ctx) => {
+      const { id } = await params;
 
-    const transaction = await prisma.transaction.findUnique({
-      where: { id },
-      include: {
-        customer: true,
-        supplier: true,
-        animal: true,
-        items: {
-          include: {
-            product: true,
+      const transaction = await prisma.transaction.findUnique({
+        where: { id },
+        include: {
+          customer: true,
+          supplier: true,
+          animal: true,
+          items: {
+            include: {
+              product: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (!transaction) {
-      return NextResponse.json({ error: "İşlem bulunamadı" }, { status: 404 });
-    }
+      if (!transaction) {
+        throw new ApiError("İşlem bulunamadı", 404);
+      }
 
-    return NextResponse.json(transaction);
-  } catch (error) {
-    console.error("Transaction fetch error:", error);
-    return NextResponse.json({ error: "İşlem getirilemedi" }, { status: 500 });
-  }
+      return NextResponse.json(transaction);
+    },
+    { component: "TransactionsAPI" },
+  );
 }
 
 // PUT update transaction status
@@ -41,32 +44,43 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withApiHandler(
+    request,
+    async (ctx) => {
+      const { id } = await params;
+      const body = await request.json();
 
-    const { id } = await params;
-    const body = await request.json();
+      // ✅ AUDIT: Get OLD data before update
+      const oldData = await prisma.transaction.findUnique({
+        where: { id },
+      });
 
-    const transaction = await prisma.transaction.update({
-      where: { id },
-      data: {
-        status: body.status,
-        paidAmount: body.paidAmount,
-        notes: body.notes,
-      },
-    });
+      if (!oldData) {
+        throw new ApiError("İşlem bulunamadı", 404);
+      }
 
-    return NextResponse.json(transaction);
-  } catch (error) {
-    console.error("Transaction update error:", error);
-    return NextResponse.json(
-      { error: "İşlem güncellenemedi" },
-      { status: 500 },
-    );
-  }
+      const transaction = await prisma.transaction.update({
+        where: { id },
+        data: {
+          status: body.status,
+          paidAmount: body.paidAmount,
+          notes: body.notes,
+        },
+      });
+
+      // ✅ AUDIT: Log UPDATE with old and new data
+      await auditUpdate(
+        "transactions",
+        id,
+        oldData,
+        transaction,
+        ctx.auditContext,
+      ).catch(console.error);
+
+      return NextResponse.json(transaction);
+    },
+    { component: "TransactionsAPI" },
+  );
 }
 
 // DELETE transaction
@@ -74,14 +88,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    // Note: Auth is handled by middleware
-    const { id } = await params;
+  return withApiHandler(
+    request,
+    async (ctx) => {
+      const { id } = await params;
 
-    // Use Prisma transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
-      // Get transaction with items to restore stock
-      const transaction = await tx.transaction.findUnique({
+      // ✅ AUDIT: Get OLD data before delete
+      const transactionToDelete = await prisma.transaction.findUnique({
         where: { id },
         include: {
           items: {
@@ -93,134 +106,132 @@ export async function DELETE(
         },
       });
 
-      if (!transaction) {
-        throw new Error("İşlem bulunamadı");
+      if (!transactionToDelete) {
+        throw new ApiError("İşlem bulunamadı", 404);
       }
 
-      // Prevent deletion of completed transactions (optional safety check)
-      // Uncomment if you want to prevent deletion of paid transactions
-      // if (transaction.status === "COMPLETED" || transaction.status === "PAID") {
-      //   throw new Error("Tamamlanmış işlemler silinemez");
-      // }
+      // Use Prisma transaction to ensure atomicity
+      const result = await prisma.$transaction(async (tx) => {
+        const transaction = transactionToDelete;
 
-      // 1. Restore stock for each item
-      for (const item of transaction.items) {
-        if (item.product && !item.product.isService) {
+        // 1. Restore stock for each item
+        for (const item of transaction.items) {
+          if (item.product && !item.product.isService) {
+            if (
+              transaction.type === "SALE" ||
+              transaction.type === "TREATMENT"
+            ) {
+              // Restore stock for sales (add back)
+              await tx.product.update({
+                where: { id: item.productId! },
+                data: {
+                  stock: {
+                    increment: item.quantity,
+                  },
+                },
+              });
+
+              // Record stock movement (reversal)
+              await tx.stockMovement.create({
+                data: {
+                  productId: item.productId!,
+                  type: "ADJUSTMENT",
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  totalPrice: Number(item.quantity) * Number(item.unitPrice),
+                  reference: `${transaction.code} İPTAL`,
+                  notes: `Satış iptali - Stok geri yüklendi`,
+                },
+              });
+            } else if (transaction.type === "PURCHASE") {
+              // Reduce stock for purchases (remove)
+              await tx.product.update({
+                where: { id: item.productId! },
+                data: {
+                  stock: {
+                    decrement: item.quantity,
+                  },
+                },
+              });
+
+              // Record stock movement (reversal)
+              await tx.stockMovement.create({
+                data: {
+                  productId: item.productId!,
+                  type: "ADJUSTMENT",
+                  quantity: -item.quantity,
+                  unitPrice: item.unitPrice,
+                  totalPrice: -(Number(item.quantity) * Number(item.unitPrice)),
+                  reference: `${transaction.code} İPTAL`,
+                  notes: `Alım iptali - Stok düşüldü`,
+                },
+              });
+            }
+          }
+        }
+
+        // 2. Update customer balance (reverse the balance change)
+        if (transaction.customerId) {
+          const remainingBalance =
+            Number(transaction.total) - Number(transaction.paidAmount);
+
           if (transaction.type === "SALE" || transaction.type === "TREATMENT") {
-            // Restore stock for sales (add back)
-            await tx.product.update({
-              where: { id: item.productId! },
+            // For sales, decrease customer balance (remove receivable)
+            await tx.customer.update({
+              where: { id: transaction.customerId },
               data: {
-                stock: {
-                  increment: item.quantity,
+                balance: {
+                  decrement: remainingBalance,
                 },
               },
             });
-
-            // Record stock movement (reversal)
-            await tx.stockMovement.create({
+          } else if (transaction.type === "CUSTOMER_PAYMENT") {
+            // For payments, increase customer balance (remove payment)
+            await tx.customer.update({
+              where: { id: transaction.customerId },
               data: {
-                productId: item.productId!,
-                type: "ADJUSTMENT",
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                totalPrice: Number(item.quantity) * Number(item.unitPrice),
-                reference: `${transaction.code} İPTAL`,
-                notes: `Satış iptali - Stok geri yüklendi`,
-              },
-            });
-          } else if (transaction.type === "PURCHASE") {
-            // Reduce stock for purchases (remove)
-            await tx.product.update({
-              where: { id: item.productId! },
-              data: {
-                stock: {
-                  decrement: item.quantity,
+                balance: {
+                  increment: Number(transaction.total),
                 },
-              },
-            });
-
-            // Record stock movement (reversal)
-            await tx.stockMovement.create({
-              data: {
-                productId: item.productId!,
-                type: "ADJUSTMENT",
-                quantity: -item.quantity,
-                unitPrice: item.unitPrice,
-                totalPrice: -(Number(item.quantity) * Number(item.unitPrice)),
-                reference: `${transaction.code} İPTAL`,
-                notes: `Alım iptali - Stok düşüldü`,
               },
             });
           }
         }
-      }
 
-      // 2. Update customer balance (reverse the balance change)
-      if (transaction.customerId) {
-        const remainingBalance =
-          Number(transaction.total) - Number(transaction.paidAmount);
+        // 3. Delete transaction items first (foreign key constraint)
+        await tx.transactionItem.deleteMany({
+          where: { transactionId: id },
+        });
 
-        if (transaction.type === "SALE" || transaction.type === "TREATMENT") {
-          // For sales, decrease customer balance (remove receivable)
-          await tx.customer.update({
-            where: { id: transaction.customerId },
-            data: {
-              balance: {
-                decrement: remainingBalance,
-              },
-            },
-          });
-        } else if (transaction.type === "CUSTOMER_PAYMENT") {
-          // For payments, increase customer balance (remove payment)
-          await tx.customer.update({
-            where: { id: transaction.customerId },
-            data: {
-              balance: {
-                increment: Number(transaction.total),
-              },
-            },
-          });
-        }
-      }
+        // 4. Delete the transaction
+        await tx.transaction.delete({
+          where: { id },
+        });
 
-      // 3. Delete transaction items first (foreign key constraint)
-      await tx.transactionItem.deleteMany({
-        where: { transactionId: id },
+        return {
+          success: true,
+          message: "İşlem başarıyla iptal edildi ve stoklar geri yüklendi",
+          code: transaction.code,
+          customerId: transaction.customerId,
+          type: transaction.type,
+        };
       });
 
-      // 4. Delete the transaction
-      await tx.transaction.delete({
-        where: { id },
-      });
+      // ✅ AUDIT: Log DELETE with old data (includes items, customer info)
+      await auditDelete(
+        "transactions",
+        id,
+        transactionToDelete,
+        ctx.auditContext,
+      ).catch(console.error);
 
-      // 5. Eğer tahsilat silindiyse, müşterinin satış durumlarını yeniden hesapla
-      if (transaction.type === "CUSTOMER_PAYMENT" && transaction.customerId) {
-        // Transaction dışında çalıştır (çünkü tx içinde recalculate çalışmaz)
-        // Bu işlemi transaction sonrasında yapacağız
+      // Eğer tahsilat silindiyse, satış durumlarını yeniden hesapla
+      if (result.type === "CUSTOMER_PAYMENT" && result.customerId) {
+        await recalculateCustomerSalesStatus(result.customerId);
       }
 
-      return {
-        success: true,
-        message: "İşlem başarıyla iptal edildi ve stoklar geri yüklendi",
-        code: transaction.code,
-        customerId: transaction.customerId,
-        type: transaction.type,
-      };
-    });
-
-    // Eğer tahsilat silindiyse, satış durumlarını yeniden hesapla
-    if (result.type === "CUSTOMER_PAYMENT" && result.customerId) {
-      await recalculateCustomerSalesStatus(result.customerId);
-    }
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error("Transaction delete error:", error);
-
-    const errorMessage =
-      error instanceof Error ? error.message : "İşlem silinemedi";
-
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
-  }
+      return NextResponse.json(result);
+    },
+    { component: "TransactionsAPI" },
+  );
 }
