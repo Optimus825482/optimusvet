@@ -231,7 +231,7 @@ export default function ProtocolDetailPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">{protocol.name}</h1>
-              <p className="text-zinc-400 text-sm">
+              <p className="text-zinc-300 text-sm">
                 {getTypeLabel(protocol.type)}
               </p>
             </div>
@@ -257,7 +257,7 @@ export default function ProtocolDetailPage() {
             <h3 className="font-semibold text-white mb-4">İlerleme Durumu</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Tamamlanan</span>
+                <span className="text-zinc-300">Tamamlanan</span>
                 <span className="text-white font-medium">
                   {protocol.completedSteps} / {protocol.totalSteps} adım
                 </span>
@@ -299,12 +299,12 @@ export default function ProtocolDetailPage() {
             <div className="space-y-2">
               <Link
                 href={`/dashboard/animals/${protocol.animal.id}`}
-                className="text-lg font-medium text-violet-400 hover:text-violet-300 transition-colors"
+                className="text-lg font-semibold text-teal-400 hover:text-teal-300 transition-colors"
               >
                 {protocol.animal.name}
               </Link>
               {protocol.animal.breed && (
-                <p className="text-sm text-zinc-400">{protocol.animal.breed}</p>
+                <p className="text-sm text-zinc-300">{protocol.animal.breed}</p>
               )}
             </div>
           </div>
@@ -320,12 +320,12 @@ export default function ProtocolDetailPage() {
             <div className="space-y-2">
               <Link
                 href={`/dashboard/customers/${protocol.animal.customer.id}`}
-                className="text-lg font-medium text-violet-400 hover:text-violet-300 transition-colors"
+                className="text-lg font-semibold text-teal-400 hover:text-teal-300 transition-colors"
               >
                 {protocol.animal.customer.name}
               </Link>
               {protocol.animal.customer.phone && (
-                <div className="flex items-center gap-2 text-sm text-zinc-400">
+                <div className="flex items-center gap-2 text-sm text-zinc-300">
                   <Phone className="w-4 h-4" />
                   <a
                     href={`tel:${protocol.animal.customer.phone}`}
@@ -345,24 +345,24 @@ export default function ProtocolDetailPage() {
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-zinc-500" />
-                <span className="text-zinc-400">Başlangıç:</span>
-                <span className="text-white">
+                <Calendar className="w-4 h-4 text-zinc-400" />
+                <span className="text-zinc-300">Başlangıç:</span>
+                <span className="text-white font-medium">
                   {formatDate(protocol.startDate)}
                 </span>
               </div>
               {protocol.template && (
                 <div>
-                  <span className="text-zinc-400">Şablon:</span>
-                  <span className="text-white ml-2">
+                  <span className="text-zinc-300">Şablon:</span>
+                  <span className="text-white font-medium ml-2">
                     {protocol.template.name}
                   </span>
                 </div>
               )}
             </div>
             {protocol.notes && (
-              <div className="mt-4 pt-4 border-t border-zinc-800/50">
-                <p className="text-sm text-zinc-400">{protocol.notes}</p>
+              <div className="mt-4 pt-4 border-t border-zinc-700/50">
+                <p className="text-sm text-zinc-300">{protocol.notes}</p>
               </div>
             )}
           </div>
@@ -377,8 +377,8 @@ export default function ProtocolDetailPage() {
             <div className="divide-y divide-zinc-800/50">
               {/* Defensive: Optional chaining + fallback for steps */}
               {(protocol.steps ?? []).length === 0 ? (
-                <div className="p-8 text-center text-zinc-500">
-                  <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <div className="p-8 text-center text-zinc-400">
+                  <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-60" />
                   <p>Bu protokolde henüz adım bulunmuyor.</p>
                 </div>
               ) : (
@@ -427,7 +427,7 @@ export default function ProtocolDetailPage() {
                           >
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-zinc-500">
+                                <span className="text-xs font-semibold text-zinc-400">
                                   Adım {index + 1}
                                 </span>
                                 {overdue && !step.completedAt && (
@@ -455,26 +455,26 @@ export default function ProtocolDetailPage() {
                             </div>
                             <div className="flex items-center gap-3">
                               <div className="text-right">
-                                <p className="text-sm text-zinc-400">
+                                <p className="text-sm text-zinc-300 font-medium">
                                   {formatDate(step.scheduledDate)}
                                 </p>
-                                <p className="text-xs text-zinc-500">
+                                <p className="text-xs text-zinc-400">
                                   +{step.dayOffset} gün
                                 </p>
                               </div>
                               {isExpanded ? (
-                                <ChevronUp className="w-5 h-5 text-zinc-500" />
+                                <ChevronUp className="w-5 h-5 text-zinc-400" />
                               ) : (
-                                <ChevronDown className="w-5 h-5 text-zinc-500" />
+                                <ChevronDown className="w-5 h-5 text-zinc-400" />
                               )}
                             </div>
                           </div>
 
                           {/* Expanded Content */}
                           {isExpanded && (
-                            <div className="mt-3 pt-3 border-t border-zinc-800/50 space-y-2">
+                            <div className="mt-3 pt-3 border-t border-zinc-700/50 space-y-2">
                               {step.description && (
-                                <p className="text-sm text-zinc-400">
+                                <p className="text-sm text-zinc-300">
                                   {step.description}
                                 </p>
                               )}
@@ -485,7 +485,7 @@ export default function ProtocolDetailPage() {
                                 </p>
                               )}
                               {step.notes && (
-                                <p className="text-sm text-zinc-500 italic">
+                                <p className="text-sm text-zinc-400 italic">
                                   {step.notes}
                                 </p>
                               )}
@@ -507,9 +507,10 @@ export default function ProtocolDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-bold text-white mb-2">Protokolü Sil</h3>
-            <p className="text-zinc-400 mb-6">
-              <strong>{protocol.name}</strong> protokolünü silmek istediğinize
-              emin misiniz? Bu işlem geri alınamaz.
+            <p className="text-zinc-300 mb-6">
+              <strong className="text-white">{protocol.name}</strong>{" "}
+              protokolünü silmek istediğinize emin misiniz? Bu işlem geri
+              alınamaz.
             </p>
             <div className="flex gap-3">
               <button
@@ -531,7 +532,7 @@ export default function ProtocolDetailPage() {
       )}
 
       {/* Footer */}
-      <div className="text-center text-xs text-zinc-600 pt-4">
+      <div className="text-center text-xs text-zinc-500 pt-4">
         © 2026 Optimus Vet. Tüm hakları saklıdır.
       </div>
     </div>
