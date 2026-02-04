@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { allocatePaymentToSalesInTransaction } from "@/lib/payment-allocation";
 import { randomUUID } from "crypto";
 import { withApiHandler, ApiError, parseBody } from "@/lib/api-route-handler";
-import { auditCreate } from "@/lib/audit";
+import { auditCreate, AuditContext } from "@/lib/audit";
 
 // GET all transactions (sales/purchases)
 export async function GET(request: NextRequest) {
@@ -117,39 +117,33 @@ export async function GET(request: NextRequest) {
 }
 
 // POST create transaction (sale/purchase/payment)
+// Now uses withApiHandler for proper error tracking
 export async function POST(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+  return withApiHandler(
+    request,
+    async (ctx) => {
+      const body = await request.json();
+      const type = body.type || "SALE";
 
-    const body = await request.json();
-    const type = body.type || "SALE";
+      // TAHSİLAT İŞLEMİ (CUSTOMER_PAYMENT) - Ayrı handler
+      if (type === "CUSTOMER_PAYMENT") {
+        return await handleCustomerPayment(body, ctx);
+      }
 
-    // TAHSİLAT İŞLEMİ (CUSTOMER_PAYMENT) - Ayrı handler
-    if (type === "CUSTOMER_PAYMENT") {
-      return await handleCustomerPayment(body, session);
-    }
+      // TEDARİKÇİ ÖDEMESİ (SUPPLIER_PAYMENT) - Ayrı handler
+      if (type === "SUPPLIER_PAYMENT") {
+        return await handleSupplierPayment(body, ctx);
+      }
 
-    // TEDARİKÇİ ÖDEMESİ (SUPPLIER_PAYMENT) - Ayrı handler
-    if (type === "SUPPLIER_PAYMENT") {
-      return await handleSupplierPayment(body, session);
-    }
-
-    // SATIŞ/ALIŞ İŞLEMİ - Mevcut mantık
-    return await handleSaleOrPurchase(
-      body,
-      session,
-      type as "SALE" | "PURCHASE" | "TREATMENT",
-    );
-  } catch (error) {
-    console.error("Transaction create error:", error);
-    return NextResponse.json(
-      { error: "İşlem oluşturulamadı" },
-      { status: 500 },
-    );
-  }
+      // SATIŞ/ALIŞ İŞLEMİ - Mevcut mantık
+      return await handleSaleOrPurchase(
+        body,
+        ctx,
+        type as "SALE" | "PURCHASE" | "TREATMENT",
+      );
+    },
+    { component: "TransactionsAPI" },
+  );
 }
 
 /**
@@ -195,7 +189,10 @@ async function generateUniqueCode(
  * - En eski alacaklardan düşer (FIFO)
  * - Müşteri bakiyesini azaltır
  */
-async function handleCustomerPayment(body: any, session: any) {
+async function handleCustomerPayment(
+  body: any,
+  ctx: { user: any; auditContext: AuditContext },
+) {
   try {
     const amount = Number(body.total || body.amount || 0);
 
@@ -242,7 +239,7 @@ async function handleCustomerPayment(body: any, session: any) {
           status: "PAID",
           paymentMethod: body.paymentMethod || "CASH",
           notes: body.notes || null,
-          userId: session.user.id,
+          userId: ctx.user.id,
           date: body.date ? new Date(body.date) : new Date(),
         },
         include: {
@@ -288,6 +285,14 @@ async function handleCustomerPayment(body: any, session: any) {
 
     console.log("[TAHSILAT] Başarıyla tamamlandı:", result.payment.code);
 
+    // ✅ AUDIT: Log customer payment creation
+    await auditCreate(
+      "transactions",
+      result.payment.id,
+      result.payment,
+      ctx.auditContext,
+    ).catch(console.error);
+
     return NextResponse.json(result.payment, { status: 201 });
   } catch (error: any) {
     console.error("[TAHSILAT] HATA:", {
@@ -329,7 +334,10 @@ async function handleCustomerPayment(body: any, session: any) {
  * - Ödeme kaydı oluşturur
  * - Tedarikçi bakiyesini azaltır
  */
-async function handleSupplierPayment(body: any, session: any) {
+async function handleSupplierPayment(
+  body: any,
+  ctx: { user: any; auditContext: AuditContext },
+) {
   const amount = Number(body.total || body.amount || 0);
 
   if (!body.supplierId) {
@@ -365,7 +373,7 @@ async function handleSupplierPayment(body: any, session: any) {
         status: "PAID",
         paymentMethod: body.paymentMethod || "CASH",
         notes: body.notes || null,
-        userId: session.user.id,
+        userId: ctx.user.id,
         date: body.date ? new Date(body.date) : new Date(),
       },
       include: {
@@ -390,6 +398,11 @@ async function handleSupplierPayment(body: any, session: any) {
     return payment;
   });
 
+  // ✅ AUDIT: Log supplier payment creation
+  await auditCreate("transactions", result.id, result, ctx.auditContext).catch(
+    console.error,
+  );
+
   return NextResponse.json(result, { status: 201 });
 }
 
@@ -401,9 +414,10 @@ async function handleSupplierPayment(body: any, session: any) {
  */
 async function handleSaleOrPurchase(
   body: any,
-  session: any,
+  ctx: { user: any; auditContext: AuditContext },
   type: "SALE" | "PURCHASE" | "TREATMENT",
 ) {
+  const session = ctx;
   // Generate unique transaction code with retry
   const prefix = type === "SALE" ? "STS" : type === "TREATMENT" ? "TDV" : "ALS";
   const code = await generateUniqueCode(prefix);
@@ -593,6 +607,14 @@ async function handleSaleOrPurchase(
       },
     });
   }
+
+  // ✅ AUDIT: Log sale/purchase creation
+  await auditCreate(
+    "transactions",
+    transaction.id,
+    transaction,
+    ctx.auditContext,
+  ).catch(console.error);
 
   return NextResponse.json(transaction, { status: 201 });
 }

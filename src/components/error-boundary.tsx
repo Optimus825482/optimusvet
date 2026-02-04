@@ -59,15 +59,31 @@ export class ErrorBoundary extends Component<Props, State> {
       this.props.onError(error, errorInfo);
     }
 
-    // TODO: Send error to monitoring service (Sentry, DataDog, etc.)
-    // Example:
-    // Sentry.captureException(error, {
-    //   contexts: {
-    //     react: {
-    //       componentStack: errorInfo.componentStack,
-    //     },
-    //   },
-    // });
+    // ✅ Send error to backend for tracking and email notification
+    this.trackErrorToBackend(error, errorInfo);
+  }
+
+  // Track error to backend API
+  private async trackErrorToBackend(error: Error, errorInfo: React.ErrorInfo) {
+    try {
+      await fetch("/api/track-client-error", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: error.message,
+          stack: error.stack,
+          componentStack: errorInfo.componentStack,
+          url: typeof window !== "undefined" ? window.location.href : "unknown",
+          userAgent:
+            typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+        }),
+      });
+      console.log("[ERROR BOUNDARY] Error tracked to backend");
+    } catch (trackError) {
+      console.error("[ERROR BOUNDARY] Failed to track error:", trackError);
+    }
   }
 
   handleReset = () => {
