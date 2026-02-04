@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { AlertCircle, X, Mail, Copy, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,11 +61,75 @@ export function ErrorModalProvider({ children }: ErrorModalProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<ErrorDetails | null>(null);
   const [copied, setCopied] = useState(false);
+  const showErrorRef = useRef<((error: ErrorDetails) => void) | undefined>(
+    undefined,
+  );
 
   const showError = useCallback((errorDetails: ErrorDetails) => {
     setError(errorDetails);
     setIsOpen(true);
     setCopied(false);
+  }, []);
+
+  // Keep ref updated for global interceptor
+  useEffect(() => {
+    showErrorRef.current = showError;
+  }, [showError]);
+
+  // 🔥 GLOBAL FETCH INTERCEPTOR
+  // Tüm fetch çağrılarını yakalar ve 500 hatalarında modal gösterir
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const originalFetch = window.fetch;
+
+    window.fetch = async function (...args) {
+      const response = await originalFetch.apply(this, args);
+
+      // Sadece API çağrılarını yakala (tüm fetch'leri değil)
+      let url = "";
+      if (typeof args[0] === "string") {
+        url = args[0];
+      } else if (args[0] instanceof Request) {
+        url = args[0].url;
+      } else if (args[0] instanceof URL) {
+        url = args[0].toString();
+      }
+      const isApiCall = url.includes("/api/");
+
+      // 500+ hata ve API çağrısı ise modal göster
+      if (isApiCall && response.status >= 500) {
+        try {
+          // Response'u clone et çünkü body sadece bir kez okunabilir
+          const clonedResponse = response.clone();
+          const data = await clonedResponse.json().catch(() => ({}));
+
+          if (showErrorRef.current) {
+            showErrorRef.current({
+              message: data.error || "Sunucu hatası oluştu",
+              errorId: data.errorId,
+              code: data.code,
+              timestamp: data.timestamp,
+            });
+          }
+        } catch {
+          // JSON parse hatası - yine de modal göster
+          if (showErrorRef.current) {
+            showErrorRef.current({
+              message: "Sunucu hatası oluştu",
+              code: `HTTP_${response.status}`,
+            });
+          }
+        }
+      }
+
+      return response;
+    };
+
+    // Cleanup - restore original fetch
+    return () => {
+      window.fetch = originalFetch;
+    };
   }, []);
 
   const hideError = useCallback(() => {

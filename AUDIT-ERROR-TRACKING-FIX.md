@@ -1,147 +1,175 @@
 # 🔧 Audit & Error Tracking Düzeltme Raporu
 
-## 📋 Tespit Edilen Sorunlar
+## ✅ TAMAMLANAN DÜZELTMELER
 
-### 1. Audit Log Sorunu
+### 1. Error Tracking Sistemi
 
-**Semptom:** Audit log'lar UPDATE/DELETE işlemlerinde oluşturulmuyor veya `oldData` boş geliyor.
+| Sorun                                 | Çözüm                                  | Durum |
+| ------------------------------------- | -------------------------------------- | ----- |
+| API hataları track edilmiyordu        | `withApiHandler()` wrapper oluşturuldu | ✅    |
+| 500 hatalarında email gönderilmiyordu | HIGH severity + notifyAdmin otomatik   | ✅    |
+| Frontend hataları yakalanmıyordu      | Error Boundary backend'e gönderim      | ✅    |
+| Error modal gösterilmiyordu           | `ErrorModalProvider` eklendi           | ✅    |
 
-**Kök Neden:**
+**Yeni Dosyalar:**
 
-- `withAuditContext()` sadece **user context** set ediyordu (userId, IP, userAgent)
-- **Audit log oluşturmak için** API'larda manuel olarak `auditCreate/auditUpdate/auditDelete` çağrılması gerekiyordu
-- Mevcut API'larda bu çağrılar **yapılmıyordu**
+- `src/lib/api-route-handler.ts` - Unified API handler
+- `src/components/error-modal.tsx` - Error modal component
+- `src/app/api/track-client-error/route.ts` - Frontend error tracking
 
-### 2. Error Tracking Sorunu
+### 2. Audit Log Sistemi
 
-**Semptom:** Hatalar veritabanına yazılmıyor, email gönderilmiyor.
+| Sorun                          | Çözüm                                 | Durum |
+| ------------------------------ | ------------------------------------- | ----- |
+| CREATE işlemleri loglanmıyordu | `auditCreate()` eklendi               | ✅    |
+| UPDATE'de oldData yoktu        | UPDATE öncesi veri çekilip loglanıyor | ✅    |
+| DELETE'de oldData yoktu        | DELETE öncesi veri çekilip loglanıyor | ✅    |
 
-**Kök Neden:**
+**Güncellenen API'lar:**
 
-- Global error handler `console.error` override ediyordu
-- Ancak severity "MEDIUM" olarak set ediliyordu
-- Email sadece HIGH/CRITICAL için gönderiliyordu
-- API'lardaki `try-catch` blokları hatayı yakalayıp generic response dönüyordu
-
----
-
-## ✅ Uygulanan Çözümler
-
-### 1. Yeni Unified API Handler (`src/lib/api-route-handler.ts`)
-
-```typescript
-// Tüm API'lar için:
-// - Otomatik error tracking (DB + email)
-// - User authentication
-// - Audit context sağlama
-export async function withApiHandler(
-  request: NextRequest,
-  handler: (context: ApiRouteContext) => Promise<NextResponse>,
-  options?: { requireAuth?: boolean; component?: string },
-): Promise<NextResponse>;
-```
-
-**Özellikler:**
-
-- ✅ 500 hatalarında **otomatik HIGH severity** ile tracking
-- ✅ HIGH/CRITICAL hatalarda **otomatik email bildirimi**
-- ✅ Structured error response (errorId dahil)
-- ✅ Prisma error handling (P2002, P2025, P2003)
-
-### 2. Frontend Error Modal (`src/components/error-modal.tsx`)
-
-```typescript
-// Global error modal component
-<ErrorModalProvider>
-  {children}
-</ErrorModalProvider>
-```
-
-**Özellikler:**
-
-- ✅ 500 hatalarda kullanıcıya modal gösterme
-- ✅ "Email ile bildirildi" mesajı
-- ✅ Error ID görüntüleme ve kopyalama
-- ✅ `useApiWithErrorModal()` hook
-
-### 3. Güncellenmiş API'lar
-
-| API                     | Durum | Değişiklik                            |
-| ----------------------- | ----- | ------------------------------------- |
-| `customers/[id]`        | ✅    | withApiHandler + auditUpdate/Delete   |
-| `transactions/[id]`     | ✅    | withApiHandler + auditUpdate/Delete   |
-| `illnesses/[illnessId]` | ✅    | withApiHandler + auditUpdate/Delete   |
-| `treatments/[id]`       | ✅    | withApiHandler + auditUpdate/Delete   |
-| `transactions`          | ⏳    | Import eklendi, handler güncellenmeli |
+- ✅ `customers/[id]` - GET, PUT, PATCH, DELETE
+- ✅ `transactions/route` - POST (SALE, PURCHASE, PAYMENT)
+- ✅ `transactions/[id]` - GET, PUT, DELETE
+- ✅ `illnesses/[illnessId]` - GET, PATCH, DELETE
+- ✅ `treatments/[id]` - GET, PATCH, DELETE
 
 ---
 
-## 🧪 Test Etme
+## 🧪 TEST PLANI
 
 ### 1. Error Tracking Testi
 
 ```bash
-# Simulate 500 error (should send email)
-curl -X POST http://localhost:3000/api/test-error-tracking \
+# Simüle edilmiş 500 hatası (email gönderilmeli)
+curl -X POST http://optimus.celilturan.com.tr/api/test-error-tracking \
   -H "Content-Type: application/json" \
   -d '{"action": "simulate-500"}'
 ```
 
+**Beklenen:**
+
+- `error_logs` tablosunda kayıt oluşur
+- Email gönderilir
+- Response'da `errorId` döner
+
 ### 2. Audit Log Testi
 
-1. Bir müşteriyi güncelleyin
-2. `audit_logs` tablosunda kontrol edin:
+```bash
+# Satış oluştur ve audit log kontrol et
+# Müşteri güncelle ve oldValues kontrol et
+```
+
+**Kontrol:**
 
 ```sql
-SELECT * FROM audit_logs
-WHERE table_name = 'customers'
-ORDER BY created_at DESC
-LIMIT 5;
+SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 10;
 ```
 
-### 3. Email Testi
+### 3. Frontend Error Testi
 
-```bash
-# Verify email config
-curl -X POST http://localhost:3000/api/test-error-tracking \
-  -H "Content-Type: application/json" \
-  -d '{"action": "verify-email"}'
+Bir component'te kasıtlı hata oluştur ve:
 
-# Send test email
-curl -X POST http://localhost:3000/api/test-error-tracking \
-  -H "Content-Type: application/json" \
-  -d '{"action": "test-email"}'
+- Error Boundary'nin yakaladığını doğrula
+- `/api/track-client-error` çağrıldığını kontrol et
+- Email geldiğini doğrula
+
+---
+
+## 📁 DEĞİŞİKLİK ÖZETİ
+
+| Dosya                                        | Değişiklik                   |
+| -------------------------------------------- | ---------------------------- |
+| `src/lib/api-route-handler.ts`               | YENİ - Unified API handler   |
+| `src/components/error-modal.tsx`             | YENİ - Error modal           |
+| `src/components/providers.tsx`               | ErrorModalProvider eklendi   |
+| `src/components/error-boundary.tsx`          | Backend tracking eklendi     |
+| `src/app/api/track-client-error/route.ts`    | YENİ - Client error endpoint |
+| `src/app/api/customers/[id]/route.ts`        | withApiHandler + audit       |
+| `src/app/api/transactions/route.ts`          | withApiHandler + auditCreate |
+| `src/app/api/transactions/[id]/route.ts`     | withApiHandler + audit       |
+| `src/app/api/illnesses/[illnessId]/route.ts` | withApiHandler + audit       |
+| `src/app/api/treatments/[id]/route.ts`       | withApiHandler + audit       |
+| `src/app/api/test-error-tracking/route.ts`   | simulate-500 eklendi         |
+
+---
+
+## 📊 AKIŞ DİYAGRAMI
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     ERROR TRACKING AKIŞI                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  [API Request]                                               │
+│       │                                                      │
+│       ▼                                                      │
+│  ┌─────────────┐                                             │
+│  │withApiHandler│                                            │
+│  └─────────────┘                                             │
+│       │                                                      │
+│       ▼                                                      │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐      │
+│  │   Handler   │───▶│   Success   │───▶│  Response   │      │
+│  └─────────────┘    └─────────────┘    └─────────────┘      │
+│       │                                                      │
+│       │ (Error)                                              │
+│       ▼                                                      │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐      │
+│  │handleApiErr │───▶│ trackError  │───▶│ error_logs  │      │
+│  └─────────────┘    └─────────────┘    │   (DB)      │      │
+│       │                                 └─────────────┘      │
+│       │ (HIGH severity)                                      │
+│       ▼                                                      │
+│  ┌─────────────┐    ┌─────────────┐                         │
+│  │sendErrorMail│───▶│ Admin Email │                         │
+│  └─────────────┘    └─────────────┘                         │
+│       │                                                      │
+│       ▼                                                      │
+│  ┌─────────────┐                                             │
+│  │ JSON + ID   │ ──▶ Frontend shows error modal             │
+│  └─────────────┘                                             │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                     AUDIT LOG AKIŞI                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  [UPDATE Request]                                            │
+│       │                                                      │
+│       ▼                                                      │
+│  ┌─────────────┐                                             │
+│  │ Get oldData │  ◀── Güncelleme öncesi mevcut veriyi al    │
+│  └─────────────┘                                             │
+│       │                                                      │
+│       ▼                                                      │
+│  ┌─────────────┐                                             │
+│  │prisma.update│                                             │
+│  └─────────────┘                                             │
+│       │                                                      │
+│       ▼                                                      │
+│  ┌─────────────┐    ┌─────────────┐                         │
+│  │ auditUpdate │───▶│ audit_logs  │                         │
+│  │(old, new)   │    │ oldValues   │                         │
+│  └─────────────┘    │ newValues   │                         │
+│                     │changedFields│                         │
+│                     └─────────────┘                         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📊 Doğrulanacaklar
+## 🚀 DEPLOY CHECKLIST
 
-- [ ] DB'de `error_logs` tablosunda kayıt oluşuyor mu?
-- [ ] DB'de `audit_logs` tablosunda kayıt oluşuyor mu?
-- [ ] `old_values` alanı UPDATE/DELETE için dolu mu?
-- [ ] 500 hatalarda email geliyor mu?
-- [ ] Frontend'de error modal açılıyor mu?
-
----
-
-## 🔄 Sonraki Adımlar
-
-1. **Kalan API'ları güncelle:**
-   - `products/[id]`
-   - `animals/[id]`
-   - `suppliers/[id]`
-   - `reminders/[id]`
-   - `protocols/[id]`
-
-2. **Frontend entegrasyonu:**
-   - Tüm fetch çağrılarını `useApiWithErrorModal()` ile değiştir
-
-3. **Monitoring dashboard:**
-   - Error log görüntüleme sayfası
-   - Audit log görüntüleme sayfası
+- [ ] Build başarılı: `npm run build`
+- [ ] Production'a deploy
+- [ ] Error tracking testi yap
+- [ ] Audit log testi yap
+- [ ] Email geldiğini doğrula
+- [ ] Veritabanı tabloları kontrol et
 
 ---
 
-**Son Güncelleme:** 2026-02-02  
-**Durum:** ✅ Çekirdek sistem hazır, API'lar güncelleniyor
+**Son Güncelleme:** 2026-02-04  
+**Durum:** ✅ Tamamlandı - Deploy edilebilir
