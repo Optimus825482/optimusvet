@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import type { ProtocolResponse } from "@/types/protocol";
 
 // GET single protocol
 export async function GET(
@@ -45,7 +46,7 @@ export async function GET(
       );
     }
 
-    // Calculate progress
+    // Calculate progress from records
     const completedRecords = animalProtocol.records.filter(
       (r) => r.completedDate,
     ).length;
@@ -55,12 +56,51 @@ export async function GET(
         ? Math.round((completedRecords / totalRecords) * 100)
         : 0;
 
-    return NextResponse.json({
-      ...animalProtocol,
-      progress,
-      completedRecords,
-      totalRecords,
+    // Transform records to steps format expected by frontend
+    // Frontend expects 'steps' at root level, not 'protocol.steps'
+    // NOTE: ProtocolRecord doesn't have dayOffset, so we calculate it from startDate
+    const steps = animalProtocol.records.map((record) => {
+      // Calculate dayOffset from protocol startDate to scheduled date
+      const startDate = new Date(animalProtocol.startDate);
+      const scheduledDate = new Date(record.scheduledDate);
+      const diffTime = scheduledDate.getTime() - startDate.getTime();
+      const dayOffset = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+      return {
+        id: record.id,
+        name: record.stepName,
+        description: record.notes,
+        dayOffset,
+        scheduledDate: record.scheduledDate.toISOString(),
+        completedAt: record.completedDate?.toISOString() || null,
+        notes: record.notes,
+      };
     });
+
+    // Build response matching frontend Protocol interface
+    // Type assertion ensures compile-time type safety
+    const response: ProtocolResponse = {
+      id: animalProtocol.id,
+      name: animalProtocol.protocol?.name || "Protokol",
+      type: animalProtocol.protocol?.type || "OTHER",
+      status: animalProtocol.status,
+      startDate: animalProtocol.startDate.toISOString(),
+      notes: animalProtocol.notes,
+      progress,
+      completedSteps: completedRecords,
+      totalSteps: totalRecords,
+      animal: animalProtocol.animal,
+      template: animalProtocol.protocol
+        ? {
+            id: animalProtocol.protocol.id,
+            name: animalProtocol.protocol.name,
+            type: animalProtocol.protocol.type,
+          }
+        : null,
+      steps,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Protocol fetch error:", error);
     return NextResponse.json(
