@@ -116,6 +116,153 @@ export default function SettingsPage() {
 
   const [saving, setSaving] = useState(false);
 
+  // Data management (yedekleme) state
+  const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [wiping, setWiping] = useState(false);
+
+  /** Yedek al → JSON dosyası indir */
+  const handleBackup = async () => {
+    setBackingUp(true);
+    try {
+      const res = await fetch("/api/backup");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Yedek alınamadı");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      a.href = url;
+      a.download = `optimusvet-yedek-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({
+        variant: "success",
+        title: "Yedek alındı",
+        description: "Yedek dosyası indirildi.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: error?.message || "Yedek alınamadı",
+      });
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+  /** Yedek dosyası seç → geri yükle */
+  const handleImport = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      if (
+        !confirm(
+          "UYARI: Geri yükleme mevcut veriyi SİLİP yedekteki veriyle değiştirir.\n\n" +
+            "Devam etmek istiyor musunuz? (İşlem öncesi güvenlik yedeği otomatik alınacaktır.)",
+        )
+      ) {
+        return;
+      }
+
+      setRestoring(true);
+      try {
+        const text = await file.text();
+        let parsed: any;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error("Dosya geçerli bir JSON değil");
+        }
+
+        const res = await fetch("/api/backup/restore", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            backup: parsed,
+            mode: "replace",
+            confirm: "RESTORE",
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Geri yükleme başarısız");
+
+        toast({
+          variant: "success",
+          title: "Geri yükleme tamamlandı",
+          description: `${data.restoredRows} kayıt, ${data.restoredTables} tablo geri yüklendi.`,
+        });
+        queryClient.invalidateQueries();
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Hata",
+          description: error?.message || "Geri yükleme başarısız",
+        });
+      } finally {
+        setRestoring(false);
+      }
+    };
+    input.click();
+  };
+
+  /** Tüm veriyi sil (kullanıcılar ve ayarlar korunur) */
+  const handleWipe = async () => {
+    if (
+      !confirm(
+        "UYARI: Tüm iş verisi (müşteriler, işlemler, ürünler, hayvanlar...) SİLİNECEK.\n" +
+          "Kullanıcılar ve ayarlar korunur. İşlem öncesi güvenlik yedeği otomatik alınır.\n\n" +
+          "Devam etmek istiyor musunuz?",
+      )
+    ) {
+      return;
+    }
+    const typed = prompt('Silmeyi onaylamak için "SİL" yazın:');
+    if (typed !== "SİL" && typed !== "SIL") {
+      toast({ title: "İptal edildi", description: "Onay metni eşleşmedi." });
+      return;
+    }
+
+    setWiping(true);
+    try {
+      const res = await fetch("/api/backup/wipe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirm: "DELETE_ALL",
+          keepUsers: true,
+          keepSettings: true,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Veri silinemedi");
+
+      toast({
+        variant: "success",
+        title: "Veri silindi",
+        description: `${data.deletedRows} kayıt silindi. Güvenlik yedeği alındı.`,
+      });
+      queryClient.invalidateQueries();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: error?.message || "Veri silinemedi",
+      });
+    } finally {
+      setWiping(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -694,7 +841,20 @@ export default function SettingsPage() {
                           Tüm verileri JSON formatında dışa aktar
                         </div>
                       </div>
-                      <Button variant="outline">Yedekle</Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleBackup}
+                        disabled={backingUp}
+                      >
+                        {backingUp ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Alınıyor...
+                          </>
+                        ) : (
+                          "Yedekle"
+                        )}
+                      </Button>
                     </div>
                   </div>
 
@@ -706,7 +866,20 @@ export default function SettingsPage() {
                           Yedek dosyasından verileri geri yükle
                         </div>
                       </div>
-                      <Button variant="outline">İçe Aktar</Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleImport}
+                        disabled={restoring}
+                      >
+                        {restoring ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Yükleniyor...
+                          </>
+                        ) : (
+                          "İçe Aktar"
+                        )}
+                      </Button>
                     </div>
                   </div>
 
@@ -720,7 +893,20 @@ export default function SettingsPage() {
                           Bu işlem geri alınamaz! Önce yedek alın.
                         </div>
                       </div>
-                      <Button variant="destructive">Sil</Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handleWipe}
+                        disabled={wiping}
+                      >
+                        {wiping ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Siliniyor...
+                          </>
+                        ) : (
+                          "Sil"
+                        )}
+                      </Button>
                     </div>
                   </div>
                 </div>

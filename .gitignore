@@ -33,6 +33,21 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Database backups (asla repoya gitmesin)
+/backups/
+*.dump
+*.sql.gz
+optimusvet_*.dump
+
+# Müşteri verisi / analiz çıktıları (hassas - repoya gitmesin)
+veresiye-defteri*.csv
+ismet-akkus-raporu/
+mutabakat-raporu/
+mutabakat-raporu.json
+restore-exports/
+.tmp-restore-inspect/
+backup_optimusvet_full.dump
+
 # vercel
 .vercel
 

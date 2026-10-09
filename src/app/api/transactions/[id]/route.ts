@@ -4,6 +4,11 @@ import { auth } from "@/lib/auth";
 import { recalculateCustomerSalesStatus } from "@/lib/payment-allocation";
 import { withApiHandler, ApiError } from "@/lib/api-route-handler";
 import { auditUpdate, auditDelete } from "@/lib/audit";
+import {
+  detectConvention,
+  entryBalanceDelta,
+  applyBalanceDelta,
+} from "@/lib/customer-balance";
 
 // GET single transaction with items
 export async function GET(
@@ -67,6 +72,37 @@ export async function PUT(
           notes: body.notes,
         },
       });
+
+      // ✅ BAKİYE SENKRONU (konvansiyon-uyumlu delta ile)
+      // paidAmount/status değişmiş olabilir. Bakiyeyi müşterinin bakiye
+      // konvansiyonuna göre eski ve yeni kaydın farkı kadar düzeltiyoruz;
+      // tam yeniden hesaplama yapmıyoruz (legacy defter müşterilerini bozar).
+      if (transaction.customerId) {
+        const recent = await prisma.transaction.findMany({
+          where: {
+            customerId: transaction.customerId,
+            type: { in: ["SALE", "TREATMENT", "CUSTOMER_PAYMENT"] },
+          },
+          select: { code: true, type: true, total: true, paidAmount: true },
+        });
+        const balanceRow = await prisma.customer.findUnique({
+          where: { id: transaction.customerId },
+          select: { balance: true },
+        });
+        const convention = detectConvention(Number(balanceRow?.balance ?? 0), recent as any);
+        const delta =
+          entryBalanceDelta(
+            { type: transaction.type, total: transaction.total, paidAmount: transaction.paidAmount },
+            convention,
+          ) -
+          entryBalanceDelta(
+            { type: oldData.type, total: oldData.total, paidAmount: oldData.paidAmount },
+            convention,
+          );
+        if (Math.abs(delta) > 0.005) {
+          await applyBalanceDelta(prisma, transaction.customerId, delta);
+        }
+      }
 
       // ✅ AUDIT: Log UPDATE with old and new data
       await auditUpdate(
@@ -170,32 +206,33 @@ export async function DELETE(
           }
         }
 
-        // 2. Update customer balance (reverse the balance change)
-        if (transaction.customerId) {
-          const remainingBalance =
-            Number(transaction.total) - Number(transaction.paidAmount);
-
-          if (transaction.type === "SALE" || transaction.type === "TREATMENT") {
-            // For sales, decrease customer balance (remove receivable)
-            await tx.customer.update({
-              where: { id: transaction.customerId },
-              data: {
-                balance: {
-                  decrement: remainingBalance,
-                },
-              },
-            });
-          } else if (transaction.type === "CUSTOMER_PAYMENT") {
-            // For payments, increase customer balance (remove payment)
-            await tx.customer.update({
-              where: { id: transaction.customerId },
-              data: {
-                balance: {
-                  increment: Number(transaction.total),
-                },
-              },
-            });
-          }
+        // 2. Müşteri bakiyesini konvansiyon-uyumlu delta ile geri al
+        // Eski kod sabit "total - paidAmount" kullanıyordu; bu legacy
+        // (defter) kayıtlarında yanlıştı (defterde satışın TAMAMI borç
+        // yazılmıştır). Silinecek kaydın, müşterinin konvansiyonuna uygun
+        // bakiye etkisini hesaplayıp ters çeviriyoruz.
+        const customerIdToSync = transaction.customerId;
+        let balanceReversal = 0;
+        if (customerIdToSync) {
+          const recent = await tx.transaction.findMany({
+            where: {
+              customerId: customerIdToSync,
+              type: { in: ["SALE", "TREATMENT", "CUSTOMER_PAYMENT"] },
+            },
+            select: { code: true, type: true, total: true, paidAmount: true },
+          });
+          const balanceRow = await tx.customer.findUnique({
+            where: { id: customerIdToSync },
+            select: { balance: true },
+          });
+          const convention = detectConvention(
+            Number(balanceRow?.balance ?? 0),
+            recent as any,
+          );
+          balanceReversal = entryBalanceDelta(
+            { type: transaction.type, total: transaction.total, paidAmount: transaction.paidAmount },
+            convention,
+          );
         }
 
         // 3. Delete transaction items first (foreign key constraint)
@@ -207,6 +244,11 @@ export async function DELETE(
         await tx.transaction.delete({
           where: { id },
         });
+
+        // 5. Bakiye geri alımı (silinen kaydın etkisini ters çevir)
+        if (customerIdToSync && Math.abs(balanceReversal) > 0.005) {
+          await applyBalanceDelta(tx as any, customerIdToSync, -balanceReversal);
+        }
 
         return {
           success: true,

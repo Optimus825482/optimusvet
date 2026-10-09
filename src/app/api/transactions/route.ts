@@ -266,13 +266,11 @@ async function handleCustomerPayment(
 
       console.log("[TAHSILAT] Dağıtım tamamlandı:", allocationResult);
 
-      // 3. Müşteri bakiyesini güncelle (tahsilat bakiyeyi AZALTIR)
-      console.log("[TAHSILAT] Müşteri bakiyesi güncelleniyor...");
+      // 3. Müşteri bakiyesini tahsilat kadar AZALT.
+      // Not: Bu açık delta her iki konvansiyonda da aynıdır (tahsilat = alacak).
       await tx.customer.update({
         where: { id: body.customerId },
-        data: {
-          balance: { decrement: amount },
-        },
+        data: { balance: { decrement: amount } },
       });
 
       console.log("[TAHSILAT] Müşteri bakiyesi güncellendi");
@@ -552,17 +550,17 @@ async function handleSaleOrPurchase(
       }
     }
 
-    // 3. Update customer balance if applicable (veresiye varsa)
-    if (body.customerId && paidAmount < total) {
+    // 3. Müşteri bakiyesini güncelle (konvansiyon-uyumlu)
+    // Modern konvansiyonda satışta yalnızca ödenmemiş kısım borç yazar.
+    // (Yeni satışlar her zaman modern akıştan gelir.)
+    if (body.customerId) {
       const remainingBalance = total - paidAmount;
-      await tx.customer.update({
-        where: { id: body.customerId },
-        data: {
-          balance: {
-            increment: remainingBalance, // Müşteri borcu ARTAR
-          },
-        },
-      });
+      if (remainingBalance > 0) {
+        await tx.customer.update({
+          where: { id: body.customerId },
+          data: { balance: { increment: remainingBalance } },
+        });
+      }
     }
 
     // 4. Update supplier balance if applicable (veresiye varsa)

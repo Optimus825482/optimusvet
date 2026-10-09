@@ -9,6 +9,10 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import {
+  isAuditExtensionActive as isExtensionActive,
+  setAuditExtensionActive as setExtensionActive,
+} from "@/lib/prisma-audit-middleware";
 import type { AuditAction } from "@prisma/client";
 
 // Sensitive fields - Bu alanlar audit log'a kaydedilmez
@@ -180,7 +184,28 @@ export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
 }
 
 /**
- * CREATE action için audit log
+ * Otomatik audit extension'ı aktif mi?
+ *
+ * Aktifken tüm veritabanı yazımları (create/update/delete/upsert/*Many)
+ * Prisma extension tarafından zaten otomatik ve garantili şekilde
+ * loglanır. Bu yüzden aşağıdaki manuel auditCreate/auditUpdate/auditDelete
+ * çağrıları, ÇİFT KAYIT oluşturmamak için etkisizdir (no-op).
+ *
+ * Veritabanı yazımı OLMAYAN olaylar (ör. LOGIN) için auditLogin() kullanın.
+ *
+ * Not: Bayrak ve setter, döngüsel import'u önlemek için
+ * prisma-audit-middleware modülünde tanımlıdır.
+ */
+export function setAuditExtensionActive(active: boolean) {
+  setExtensionActive(active);
+}
+
+export function isAuditExtensionActive(): boolean {
+  return isExtensionActive();
+}
+
+/**
+ * CREATE action için audit log (extension aktifken no-op)
  */
 export async function auditCreate(
   tableName: string,
@@ -188,6 +213,8 @@ export async function auditCreate(
   data: Record<string, any>,
   context?: AuditContext,
 ): Promise<void> {
+  if (isExtensionActive()) return;
+
   await createAuditLog({
     action: "CREATE",
     tableName,
@@ -198,7 +225,7 @@ export async function auditCreate(
 }
 
 /**
- * UPDATE action için audit log
+ * UPDATE action için audit log (extension aktifken no-op)
  */
 export async function auditUpdate(
   tableName: string,
@@ -207,6 +234,8 @@ export async function auditUpdate(
   newData: Record<string, any>,
   context?: AuditContext,
 ): Promise<void> {
+  if (isExtensionActive()) return;
+
   const { changedFields, oldValues, newValues } = detectChanges(
     oldData,
     newData,
@@ -229,7 +258,7 @@ export async function auditUpdate(
 }
 
 /**
- * DELETE action için audit log
+ * DELETE action için audit log (extension aktifken no-op)
  */
 export async function auditDelete(
   tableName: string,
@@ -237,11 +266,33 @@ export async function auditDelete(
   data: Record<string, any>,
   context?: AuditContext,
 ): Promise<void> {
+  if (isExtensionActive()) return;
+
   await createAuditLog({
     action: "DELETE",
     tableName,
     recordId,
     oldValues: data,
+    context,
+  });
+}
+
+/**
+ * LOGIN gibi veritabanı yazımı OLMAYAN olaylar için audit log.
+ *
+ * Bu olaylar extension tarafından yakalanamaz (çünkü bir kayıt
+ * oluşturulmaz/güncellenmez/silinmez), bu yüzden her zaman yazılır.
+ */
+export async function auditLogin(
+  userId: string,
+  data: Record<string, any>,
+  context?: AuditContext,
+): Promise<void> {
+  await createAuditLog({
+    action: "LOGIN",
+    tableName: "users",
+    recordId: userId,
+    newValues: { action: "LOGIN", ...data },
     context,
   });
 }

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3002",
     "build": "prisma generate && next build",
-    "start": "next start -p 3002",
+    "start": "node scripts/deploy-migrate.js && next start -p 3002",
     "lint": "eslint",
     "generate:icons": "node scripts/generate-icons.js",
     "db:generate": "prisma generate",
@@ -14,7 +14,8 @@
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
-    "fix:balances": "npx tsx scripts/fix-customer-balances.ts"
+    "fix:balances": "npx tsx scripts/fix-customer-balances.ts",
+    "deploy:migrate": "node scripts/deploy-migrate.js"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

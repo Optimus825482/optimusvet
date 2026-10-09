@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { trackError } from "@/lib/error-tracking";
 import { AuditContext } from "@/lib/audit";
+import { setAuditContext } from "@/lib/prisma-audit-middleware";
 
 // =====================================================
 // TYPES
@@ -135,6 +136,10 @@ export async function withApiHandler(
       },
       request,
     };
+
+    // Otomatik audit extension'ın kullanıcı/IP bağlamını görebilmesi için
+    // request-scoped context'i set et (AsyncLocalStorage).
+    setAuditContext(context.auditContext);
 
     // 4. Execute handler
     return await handler(context);

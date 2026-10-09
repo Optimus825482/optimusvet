@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@prisma/client";
 import type { Adapter } from "next-auth/adapters";
-import { auditCreate } from "@/lib/audit";
+import { auditLogin } from "@/lib/audit";
 
 declare module "next-auth" {
   interface Session {
@@ -61,11 +61,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // ✅ LOGIN AUDIT LOG OLUŞTUR
         try {
-          await auditCreate(
-            "users",
+          await auditLogin(
             user.id,
             {
-              action: "LOGIN",
               email: user.email,
               name: user.name,
               timestamp: new Date(),

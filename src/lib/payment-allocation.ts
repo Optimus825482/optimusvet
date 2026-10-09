@@ -1,5 +1,16 @@
 import { prisma } from "./prisma";
-import { Prisma } from "@prisma/client";
+
+/**
+ * Transaction içinde çalışan fonksiyonlar için minimum client arayüzü.
+ * Genişletilmiş (audit extension'lı) $transaction client'ı ile de
+ * uyumlu olması için yapısal tipte tanımlandı.
+ */
+type PaymentAllocationTx = {
+  transaction: {
+    findMany: (args: any) => Promise<any[]>;
+    update: (args: any) => Promise<any>;
+  };
+};
 
 /**
  * Tahsilat yapıldığında en eski alacaklardan başlayarak düşer
@@ -85,7 +96,7 @@ export async function allocatePaymentToSales(
  * Bu fonksiyon Prisma transaction içinde çalışır ve atomicity garantisi sağlar
  */
 export async function allocatePaymentToSalesInTransaction(
-  tx: Prisma.TransactionClient,
+  tx: PaymentAllocationTx,
   customerId: string,
   paymentAmount: number,
 ) {
